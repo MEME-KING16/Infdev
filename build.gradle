@@ -1,0 +1,45 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+def lwjglVersion = "3.3.3"
+
+// list of natives for all OS
+def lwjglNatives = [
+    "natives-windows",
+    "natives-linux",
+    "natives-macos"
+]
+
+dependencies {
+    implementation "org.lwjgl:lwjgl:${lwjglVersion}"
+    implementation "org.lwjgl:lwjgl-glfw:${lwjglVersion}"
+    implementation "org.lwjgl:lwjgl-opengl:${lwjglVersion}"
+    implementation "org.lwjgl:lwjgl-stb:${lwjglVersion}"
+    implementation "org.joml:joml:1.10.5"
+
+    // include all natives at runtime
+    lwjglNatives.each { n ->
+        runtimeOnly "org.lwjgl:lwjgl:${lwjglVersion}:${n}"
+        runtimeOnly "org.lwjgl:lwjgl-glfw:${lwjglVersion}:${n}"
+        runtimeOnly "org.lwjgl:lwjgl-opengl:${lwjglVersion}:${n}"
+        runtimeOnly "org.lwjgl:lwjgl-stb:${lwjglVersion}:${n}"
+    }
+}
+
+application {
+    mainClass = "net.infdev.Main"
+}
+
+shadowJar {
+    archiveBaseName.set("infdev")
+    archiveVersion.set("0.1.0-alpha.1")
+    archiveClassifier.set("") // no "-all"
+}

@@ -1,0 +1,224 @@
+package net.infdev.engine;
+
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.system.MemoryUtil.*;
+
+import java.nio.FloatBuffer;
+
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL;
+
+import net.infdev.block.Block;
+import net.infdev.util.WorldGen;
+
+public class Renderer {
+    public long window;
+    public int shaderProgram;
+    public int vao;
+    int mvpLoc;
+    float angle = 0.0f;
+    int indicesCount;
+	// Camera state
+	Vector3f cameraPos   = new Vector3f(0.0f, 0.0f, 3.0f);
+	Vector3f cameraFront = new Vector3f(0.0f, 0.0f, -1.0f);
+	Vector3f cameraUp    = new Vector3f(0.0f, 1.0f, 0.0f);
+	float cameraSpeed = 0.1f; // tweak for faster/slower movement
+	float yaw   = -90.0f; // start facing -Z
+	float pitch = 0.0f;
+
+	float lastX = 400, lastY = 300; // window center
+	boolean firstMouse = true;
+
+	float sensitivity = 0.1f; // mouse sensitivity
+
+    public void init() {
+        if (!glfwInit()) throw new IllegalStateException("Unable to init GLFW");
+
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+        window = glfwCreateWindow(800, 600, "Invdev 0.1.0-alpha.1", NULL, NULL);
+        if (window == NULL) throw new RuntimeException("Failed to create window");
+
+        glfwMakeContextCurrent(window);
+        glfwSwapInterval(1);
+        glfwShowWindow(window);
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
+			if (firstMouse) {
+				lastX = (float) xpos;
+				lastY = (float) ypos;
+				firstMouse = false;
+			}
+
+			float xoffset = (float) xpos - lastX;
+			float yoffset = lastY - (float) ypos; // reversed (y-coordinates go bottom->top)
+			lastX = (float) xpos;
+			lastY = (float) ypos;
+
+			xoffset *= sensitivity;
+			yoffset *= sensitivity;
+
+			yaw   += xoffset;
+			pitch += yoffset;
+
+			// clamp pitch so camera doesn't flip
+			if (pitch > 89.0f) pitch = 89.0f;
+			if (pitch < -89.0f) pitch = -89.0f;
+
+			// recalc cameraFront
+			Vector3f front = new Vector3f();
+			front.x = (float) Math.cos(Math.toRadians(yaw)) * (float) Math.cos(Math.toRadians(pitch));
+			front.y = (float) Math.sin(Math.toRadians(pitch));
+			front.z = (float) Math.sin(Math.toRadians(yaw)) * (float) Math.cos(Math.toRadians(pitch));
+			cameraFront.set(front.normalize());
+		});
+
+
+        GL.createCapabilities();
+
+        Block vertices = new Block();
+        vertices.registerCube(-0.5f, -0.5f, -0.5f, 0f, 1f, 0f);
+
+        int[] indices = {
+            0,1,2, 2,3,0, // back
+            4,5,6, 6,7,4, // front
+            0,1,5, 5,4,0, // bottom
+            2,3,7, 7,6,2, // top
+            0,3,7, 7,4,0, // left
+            1,2,6, 6,5,1  // right
+        };
+
+        indicesCount = indices.length;
+
+        vao = glGenVertexArrays();   
+        glBindVertexArray(vao);      
+
+        int vbo = glGenBuffers();                         
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);               
+        glBufferData(GL_ARRAY_BUFFER, vertices.cube, GL_STATIC_DRAW); 
+
+        int ebo = glGenBuffers();                              
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);            
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW); 
+
+        glVertexAttribPointer(
+            0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0
+        );
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(
+            1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES
+        );
+        glEnableVertexAttribArray(1);
+
+        String vertexShaderSource =
+            "#version 330 core\n" +
+            "layout (location = 0) in vec3 aPos;\n" +
+            "layout (location = 1) in vec3 aColor;\n" +
+            "out vec3 ourColor;\n" +
+            "uniform mat4 mvp;\n" +
+            "void main() {\n" +
+            "    gl_Position = mvp * vec4(aPos, 1.0);\n" +
+            "    ourColor = aColor;\n" +
+            "}\n";
+
+        int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, vertexShaderSource);
+        glCompileShader(vertexShader);
+
+        if (glGetShaderi(vertexShader, GL_COMPILE_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Vertex Shader compilation failed:\n" + glGetShaderInfoLog(vertexShader));
+        }
+
+        String fragmentShaderSource =
+            "#version 330 core\n" +
+            "uniform vec4 cubeColor;\n" +
+            "out vec4 FragColor;\n" +
+            "void main() {\n" +
+            "    FragColor = cubeColor;\n" +
+            "}\n";
+
+        int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, fragmentShaderSource);
+        glCompileShader(fragmentShader);
+
+        if (glGetShaderi(fragmentShader, GL_COMPILE_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Fragment Shader compilation failed:\n" + glGetShaderInfoLog(fragmentShader));
+        }
+
+        shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glLinkProgram(shaderProgram);
+
+        if (glGetProgrami(shaderProgram, GL_LINK_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Program linking failed:\n" + glGetProgramInfoLog(shaderProgram));
+        }
+
+        glUseProgram(shaderProgram);
+
+        mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
+
+        Matrix4f projection = new Matrix4f()
+            .perspective((float) Math.toRadians(45.0f), 800f / 600f, 0.1f, 100.0f);
+        Matrix4f view = new Matrix4f()
+            .lookAt(new Vector3f(0.0f, 0.0f, 3.0f),
+                    new Vector3f(0.0f, 0.0f, 0.0f),
+                    new Vector3f(0.0f, 1.0f, 0.0f));
+        Matrix4f model = new Matrix4f().identity();
+
+        Matrix4f mvp = new Matrix4f();
+        projection.mul(view, mvp);
+        mvp.mul(model);
+
+        FloatBuffer fb = BufferUtils.createFloatBuffer(16);
+        mvp.get(fb);
+        glUniformMatrix4fv(mvpLoc, false, fb);
+
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		WorldGen.init();
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+        glUseProgram(shaderProgram);
+    }
+
+    
+
+    public void loop() {
+        glEnable(GL_DEPTH_TEST); 
+        glEnable(GL_TEXTURE_2D); 
+
+        while (!glfwWindowShouldClose(window)) {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            Matrix4f projection = new Matrix4f()
+                .perspective((float) Math.toRadians(90.0f), 800f / 600f, 0.1f, 100.0f);
+            
+            Matrix4f view = new Matrix4f()
+								.lookAt(
+									cameraPos,                                  // dynamic camera position
+									new Vector3f(cameraPos).add(cameraFront),   // look towards where the camera faces
+									cameraUp                                    // up vector
+								);
+
+			WorldGen.loop(projection,view,mvpLoc,indicesCount,shaderProgram,vao);
+
+            CheckKeyPress.checkKeyPress(window, cameraPos, cameraFront, cameraUp, cameraSpeed);
+
+            glUseProgram(shaderProgram);
+            glBindVertexArray(vao);
+
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+        }
+    }
+}
