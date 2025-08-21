@@ -4,6 +4,7 @@ import org.lwjgl.*;
 import org.lwjgl.opengl.*;
 
 import net.infdev.block.Block;
+import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
 import net.infdev.engine.Renderer;
@@ -26,39 +27,16 @@ import static org.lwjgl.system.MemoryUtil.*;
 
 import java.lang.Math;
 
-// public class Main {
-//     private Renderer renderer;
-//     private void run() {
-//         renderer = new Renderer();
-//         renderer.init();
-//         renderer.loop();
-
-//         // Cleanup
-//         glDeleteVertexArrays(renderer.vao);
-//         glDeleteProgram(renderer.shaderProgram);
-//         glfwDestroyWindow(renderer.window);
-//         glfwTerminate();
-//     }
-
-    
-
-//     public static void main(String[] args) {
-//         new Main().run();
-//         // Register some blocks
-//        Registries.BLOCKS.register("stone", new Block("Stone"));
-//        Registries.BLOCKS.register("grass", new Block("Grass"));
-//
-//        // Access later
-//        Block stone = Registries.BLOCKS.get("stone");
-//     }
-// }
-
 public class Main implements IAppLogic {
 
     public static void main(String[] args) {
         Main main = new Main();
-        Engine gameEng = new Engine("Invdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        Engine gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        Blocks.registerBlocks();
+        
         gameEng.start();
+        
+
     }
 
     @Override
@@ -68,7 +46,7 @@ public class Main implements IAppLogic {
 
     @Override
     public void init(Window window, Scene scene, Render render) {
-        // Nothing to be done yet
+        
     }
 
     @Override

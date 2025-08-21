@@ -20,6 +20,10 @@ import org.lwjgl.BufferUtils;
 
 
 public class Block {
+	public float red;
+	public float green;
+	public float blue;
+
 	public float[] cube;
 
 	/**
@@ -31,22 +35,28 @@ public class Block {
 	 * @param green - Green float value
 	 * @param blue - Blue float value
 	 */
-	public void registerCube(float x, float y, float z, float red, float green, float blue) {
+	public void registerCube(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
 		ArrayList<ArrayList<Float>> cube = new ArrayList<ArrayList<Float>>();
 
-		cube.add(registerPoint(x, y, z, red, green, blue));					// Bottom Left Front
-		cube.add(registerPoint(x + 1, y, z, red, green, blue));				// Bottom Right Front
-		cube.add(registerPoint(x + 1, y + 1, z, red, green, blue));			// Top Right Front
-		cube.add(registerPoint(x, y + 1, z, red, green, blue));				// Top Left Front
-		cube.add(registerPoint(x, y, z + 1, red, green, blue));				// Bottom Left Back
-		cube.add(registerPoint(x + 1, y, z + 1, red, green, blue));			// Bottom Right Back
-		cube.add(registerPoint(x + 1, y + 1, z + 1, red, green, blue));		// Top Right Back
-		cube.add(registerPoint(x, y + 1, z + 1, red, green, blue));			// Top Left Back
+		cube.add(registerPoint(minX, minY, minZ, this.red, this.green, this.blue));		// Bottom Left Front
+		cube.add(registerPoint(maxX, minY, minZ, this.red, this.green, this.blue));		// Bottom Right Front
+		cube.add(registerPoint(maxX, maxY, minZ, this.red, this.green, this.blue));		// Top Right Front
+		cube.add(registerPoint(minX, maxY, minZ, this.red, this.green, this.blue));		// Top Left Front
+		cube.add(registerPoint(minX, minY, maxZ, this.red, this.green, this.blue));		// Bottom Left Back
+		cube.add(registerPoint(maxX, minY, maxZ, this.red, this.green, this.blue));		// Bottom Right Back
+		cube.add(registerPoint(maxX, maxY, maxZ, this.red, this.green, this.blue));		// Top Right Back
+		cube.add(registerPoint(minX, maxY, maxZ, this.red, this.green, this.blue));		// Top Left Back
 
         // double[] vertices = cube.stream().flatMap(List::stream).mapToDouble(Float::floatValue).toArray();
 		float[] vertices = mapToFloat(cube);
 
 		this.cube = vertices;
+	}
+
+	public void setCubeColor(float[] color) {
+		this.red = color[0];
+		this.green = color[1];
+		this.blue = color[2];
 	}
 
 	/**
@@ -60,7 +70,7 @@ public class Block {
 	 */
     public void render(Matrix4f projection, Matrix4f view, int mvpLoc, int indicesCount, int shaderProgram, int vao) {
 		int colorLocation = glGetUniformLocation(shaderProgram, "cubeColor");
-		glUniform4f(colorLocation, this.cube[3], this.cube[4], this.cube[5], 1.0f);
+		glUniform4f(colorLocation, this.red, this.green, this.blue, 1.0f);
 
 		
         glBindBuffer(GL_ARRAY_BUFFER, vao);

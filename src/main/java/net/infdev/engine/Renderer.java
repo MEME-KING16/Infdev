@@ -15,6 +15,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL;
 
 import net.infdev.block.Block;
+import net.infdev.block.Blocks;
 import net.infdev.util.WorldGen;
 
 public class Renderer {
@@ -25,7 +26,7 @@ public class Renderer {
     float angle = 0.0f;
     int indicesCount;
 	// Camera state
-	Vector3f cameraPos   = new Vector3f(0.0f, 0.0f, 3.0f);
+	public Vector3f cameraPos = new Vector3f(0.0f, 0.0f, 3.0f);
 	Vector3f cameraFront = new Vector3f(0.0f, 0.0f, -1.0f);
 	Vector3f cameraUp    = new Vector3f(0.0f, 1.0f, 0.0f);
 	float cameraSpeed = 0.1f; // tweak for faster/slower movement
@@ -85,16 +86,19 @@ public class Renderer {
         GL.createCapabilities();
 
         Block vertices = new Block();
-        vertices.registerCube(-0.5f, -0.5f, -0.5f, 0f, 1f, 0f);
+        float[] color = {1, 0, 0};
+        vertices.setCubeColor(color);
+        vertices.registerCube(-0.5f, -0.5f, -0.5f, -0.5f + 1, -0.5f + 1, -0.5f + 1);
 
         int[] indices = {
-            0,1,2, 2,3,0, // back
-            4,5,6, 6,7,4, // front
-            0,1,5, 5,4,0, // bottom
-            2,3,7, 7,6,2, // top
-            0,3,7, 7,4,0, // left
-            1,2,6, 6,5,1  // right
+            0, 2, 1,   2, 0, 3,
+            4, 5, 6,   6, 7, 4,
+            0, 1, 5,   5, 4, 0,
+            3, 7, 6,   6, 2, 3,
+            0, 4, 7,   7, 3, 0,
+            1, 2, 6,   6, 5, 1
         };
+
 
         indicesCount = indices.length;
 
@@ -184,7 +188,13 @@ public class Renderer {
         glUniformMatrix4fv(mvpLoc, false, fb);
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        
 		WorldGen.init();
+        
+        glEnable(GL_TEXTURE_2D); 
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
 
@@ -195,7 +205,6 @@ public class Renderer {
 
     public void loop() {
         glEnable(GL_DEPTH_TEST); 
-        glEnable(GL_TEXTURE_2D); 
 
         while (!glfwWindowShouldClose(window)) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -216,6 +225,8 @@ public class Renderer {
 
             glUseProgram(shaderProgram);
             glBindVertexArray(vao);
+            
+            Collision.checkCollision();
 
             glfwSwapBuffers(window);
             glfwPollEvents();

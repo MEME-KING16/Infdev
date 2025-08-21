@@ -16,6 +16,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
+import static org.lwjgl.glfw.GLFW.glfwFocusWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetFramebufferSize;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
@@ -23,6 +24,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
 import static org.lwjgl.glfw.GLFW.glfwInit;
 import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
 import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwRequestWindowAttention;
 import static org.lwjgl.glfw.GLFW.glfwSetErrorCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
@@ -108,6 +110,8 @@ public class Window {
         }
 
         glfwShowWindow(windowHandle);
+        glfwFocusWindow(windowHandle);
+        glfwRequestWindowAttention(windowHandle);
 
         int[] arrWidth = new int[1];
         int[] arrHeight = new int[1];

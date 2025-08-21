@@ -7,6 +7,7 @@ import org.joml.Matrix4f;
 import org.joml.Random;
 
 import net.infdev.block.Block;
+import net.infdev.block.Blocks;
 
 public class WorldGen {
     private static List<Block> world;
@@ -16,13 +17,23 @@ public class WorldGen {
     public static void init() {
         world = new ArrayList<>();
         Random rand = new Random();
-
-        int size = 30;
+        int size = 8;
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
                 for (int z = 0; z < size; z++) {
                     Block block = new Block();
-                    block.registerCube(x, y, z, rand.nextFloat(), rand.nextFloat(), rand.nextFloat());
+
+                    if (y < 2) {
+                        block.setCubeColor(Blocks.STONE.getColor());
+                    } else if (y == size-1) {
+                        block.setCubeColor(Blocks.GRASS.getColor());
+                    } else {
+                        block.setCubeColor(Blocks.DIRT.getColor());
+                        
+                    }
+
+                    block.registerCube(x, y, z, x + 1, y + 1, z + 1);
+                    
                     world.add(block);
                 }
             }
@@ -39,11 +50,12 @@ public class WorldGen {
      * @param vao
      */
     public static void loop(Matrix4f projection,Matrix4f view, int mvpLoc, int indicesCount, int shaderProgram, int vao) {
-        int size = 30;
+       int size = 8;
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
                 for (int z = 0; z < size; z++) {
-                    world.get(x+y+z).render(projection, view, mvpLoc, indicesCount, shaderProgram, vao);
+                    int index = (x * size * size) + (y * size) + z;
+                    world.get(index).render(projection, view, mvpLoc, indicesCount, shaderProgram, vao);
                 }
             }
         }
