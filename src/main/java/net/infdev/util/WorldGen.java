@@ -16,15 +16,17 @@ public class WorldGen {
      */
     public static void init() {
         world = new ArrayList<>();
-        Random rand = new Random();
         int size = 8;
+
+        float[] stone = {0.5f,0.5f,0.5f};
+
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
                 for (int z = 0; z < size; z++) {
                     Block block = new Block();
 
                     if (y < 2) {
-                        block.setCubeColor(Blocks.STONE.getColor());
+                        block.setCubeColor(stone);//Blocks.STONE.getColor());
                     } else if (y == size-1) {
                         block.setCubeColor(Blocks.GRASS.getColor());
                     } else {

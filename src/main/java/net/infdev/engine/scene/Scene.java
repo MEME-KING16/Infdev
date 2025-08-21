@@ -5,12 +5,11 @@ import net.infdev.engine.Renderer;
 public class Scene {
 	public Renderer renderer;
 
-    public Scene() {
+	public Scene() {
 		renderer = new Renderer();
-        renderer.init();
-        renderer.loop();
-    }
+		
+		renderer.init();
+	}
 
-    public void cleanup() {
-    }
+	public void cleanup() { }
 }

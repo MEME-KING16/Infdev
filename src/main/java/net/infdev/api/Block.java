@@ -2,25 +2,19 @@ package net.infdev.api;
 
 public class Block {
 	private final String name;
-	private float red;
-	private float green;
-	private float blue;
+	private float[] color;
 
 	/**
 	 * @param name The name of the block thats being added
 	 * @param red The red value
 	 */
-	public Block(String name, float red, float green, float blue) {
+	public Block(String name, float[] color) {
 		this.name = name;
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
+		this.color = color;
 	}
 
 	public float[] getColor() {
-		float[] color = {this.red, this.green, this.blue};
-
-		return color;
+		return this.color;
 	}
 
 	public String getName() { 

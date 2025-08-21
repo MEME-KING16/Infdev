@@ -1,11 +1,11 @@
 package net.infdev.engine;
 
-import net.infdev.engine.scene.Scene;
+import net.infdev.Main;
 
 public class Collision {
     static void checkCollision() {
-        // if (renderer.cameraPos.x  ) {
+        if (Main.gameEng.scene.renderer.cameraPos.x < (5.0F - 4.0F)) {
             
-        // }
+        }
     }
 }

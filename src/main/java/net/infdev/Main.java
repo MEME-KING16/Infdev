@@ -27,16 +27,18 @@ import static org.lwjgl.system.MemoryUtil.*;
 
 import java.lang.Math;
 
-public class Main implements IAppLogic {
 
+public class Main implements IAppLogic {
+    public static Engine gameEng;
     public static void main(String[] args) {
         Main main = new Main();
-        Engine gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        
+        // Get the differing things for registries before game start
         Blocks.registerBlocks();
+
+        gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions());
         
         gameEng.start();
-        
-
     }
 
     @Override

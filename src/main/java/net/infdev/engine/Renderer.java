@@ -14,9 +14,11 @@ import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL;
 
+import net.infdev.Main;
 import net.infdev.block.Block;
 import net.infdev.block.Blocks;
 import net.infdev.util.WorldGen;
+
 
 public class Renderer {
     public long window;
@@ -39,18 +41,24 @@ public class Renderer {
 	float sensitivity = 0.1f; // mouse sensitivity
 
     public void init() {
-        if (!glfwInit()) throw new IllegalStateException("Unable to init GLFW");
+        if (!glfwInit()) {
+            throw new IllegalStateException("Unable to init GLFW");
+        }
 
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-        window = glfwCreateWindow(800, 600, "Invdev 0.1.0-alpha.1", NULL, NULL);
-        if (window == NULL) throw new RuntimeException("Failed to create window");
+        window = glfwCreateWindow(800, 600, "Infdev 0.1.0-alpha.1", NULL, NULL);
+        
+        if (window == NULL) {
+            throw new RuntimeException("Failed to create window");
+        }
 
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
         glfwShowWindow(window);
+        glfwFocusWindow(window);
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
 			if (firstMouse) {
@@ -71,14 +79,19 @@ public class Renderer {
 			pitch += yoffset;
 
 			// clamp pitch so camera doesn't flip
-			if (pitch > 89.0f) pitch = 89.0f;
-			if (pitch < -89.0f) pitch = -89.0f;
+			if (pitch > 89.0f) {
+                pitch = 89.0f;
+            } else if (pitch < -89.0f) {
+                pitch = -89.0f;
+            }
 
 			// recalc cameraFront
 			Vector3f front = new Vector3f();
+
 			front.x = (float) Math.cos(Math.toRadians(yaw)) * (float) Math.cos(Math.toRadians(pitch));
 			front.y = (float) Math.sin(Math.toRadians(pitch));
 			front.z = (float) Math.sin(Math.toRadians(yaw)) * (float) Math.cos(Math.toRadians(pitch));
+            
 			cameraFront.set(front.normalize());
 		});
 
@@ -202,11 +215,24 @@ public class Renderer {
     }
 
     
+    public int targetFps;
+    public int targetUps;
+    public float deltaUpdate;
 
     public void loop() {
-        glEnable(GL_DEPTH_TEST); 
+        glEnable(GL_DEPTH_TEST);
+            long initialTime = System.currentTimeMillis();
+            float timeU = 1000.0f / Main.gameEng.targetUps;
+            float timeR = Main.gameEng.targetFps > 0 ? 1000.0f / Main.gameEng.targetFps : 0;
+            deltaUpdate = 0;
+            float deltaFps = 0;
+
+            long updateTime = initialTime;
 
         while (!glfwWindowShouldClose(window)) {
+            glfwPollEvents(); 
+            CheckKeyPress.checkKeyPress(window, cameraPos, cameraFront, cameraUp, cameraSpeed);
+
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             Matrix4f projection = new Matrix4f()
@@ -221,15 +247,36 @@ public class Renderer {
 
 			WorldGen.loop(projection,view,mvpLoc,indicesCount,shaderProgram,vao);
 
-            CheckKeyPress.checkKeyPress(window, cameraPos, cameraFront, cameraUp, cameraSpeed);
-
             glUseProgram(shaderProgram);
             glBindVertexArray(vao);
+
+
+            long now = System.currentTimeMillis();
+            deltaUpdate += (now - initialTime) / timeU;
+            deltaFps += (now - initialTime) / timeR;
+
+            //Main.gameEng.physics.applyPhysics(deltaUpdate, cameraPos, cameraUp, cameraSpeed);
+
+
+            if (targetFps <= 0 || deltaFps >= 1) {
+                //appLogic.input(window, scene, now - initialTime);
+            }
+
+            if (deltaUpdate >= 1) {
+                long diffTimeMillis = now - updateTime;
+                //appLogic.update(window, scene, diffTimeMillis);
+                updateTime = now;
+                deltaUpdate--;
+            }
+
+            if (targetFps <= 0 || deltaFps >= 1) {
+                deltaFps--;
+            }
+            initialTime = now;
             
-            Collision.checkCollision();
+            //Collision.checkCollision();
 
             glfwSwapBuffers(window);
-            glfwPollEvents();
         }
     }
 }

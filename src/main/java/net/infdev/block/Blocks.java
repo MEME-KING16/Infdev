@@ -8,9 +8,13 @@ import java.util.Iterator;
 import java.util.function.ToIntFunction;
 
 public class Blocks {
-	public static final Block STONE = new Block("Stone", 0.5f, 0.5f, 0.5f); 
-	public static final Block DIRT = new Block("Dirt", 0.588f, 0.294f, 0f);
-	public static final Block GRASS = new Block("Grass", 0F, 1F, 0F);
+	private static float[] GREY = { 0.5f, 0.5f, 0.5f };
+	private static float[] BROWN = { 0.588f, 0.294f, 0f };
+	private static float[] GREEN = { 0F, 1F, 0F };
+
+	public static final Block STONE = new Block("Stone", GREY); 
+	public static final Block DIRT = new Block("Dirt", BROWN);
+	public static final Block GRASS = new Block("Grass", GREEN);
 	  
 	public static void registerBlocks() {
 		Registries.BLOCK.register("stone", STONE);
