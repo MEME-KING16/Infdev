@@ -8,6 +8,8 @@ import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import org.joml.Vector3f;
 
 public class CheckKeyPress {
+	private static boolean tabbedOut = false;
+
     public static void checkKeyPress(long window, Vector3f cameraPos, Vector3f cameraFront, Vector3f cameraUp, float cameraSpeed) {
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			cameraPos.add(new Vector3f(cameraFront).mul(cameraSpeed));
@@ -34,8 +36,17 @@ public class CheckKeyPress {
 		}
 			
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			//glfwSetWindowShouldClose(window, true);
+			tabbedOut = !tabbedOut;
+
+			if (tabbedOut) {
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			} else {
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			}			
 		}
-    }
+
+		if (glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS) {
+			glfwSetWindowShouldClose(window, true);
+		}
+	}
 }
