@@ -23,7 +23,7 @@ public class Block {
 	public float red;
 	public float green;
 	public float blue;
-	public float[] blockCollision = {0, 0, 0};
+	public float[] blockCollision = {0, 0, 0, 0, 0, 0};
 	public float[] cube;
 
 	/**
@@ -49,9 +49,12 @@ public class Block {
 
 		float[] vertices = mapToFloat(cube);
 
-		this.blockCollision[0] = maxX;
-		this.blockCollision[1] = maxY;
-		this.blockCollision[2] = maxZ;
+		this.blockCollision[0] = minX;
+		this.blockCollision[1] = minY;
+		this.blockCollision[2] = minZ;
+		this.blockCollision[3] = maxX;
+		this.blockCollision[4] = maxY;
+		this.blockCollision[5] = maxZ;
 
 		this.cube = vertices;
 	}
@@ -63,7 +66,7 @@ public class Block {
 	}
 
 	public float[] getCollison() {
-		float[] block = {this.blockCollision[0], this.blockCollision[1], this.blockCollision[2]};
+		float[] block = {this.blockCollision[0], this.blockCollision[1], this.blockCollision[2], this.blockCollision[3], this.blockCollision[4], this.blockCollision[5]};
 
 		return block;
 	}

@@ -2,10 +2,9 @@ package net.infdev.engine;
 
 import static org.lwjgl.glfw.GLFW.*;
 
-import static org.lwjgl.glfw.GLFW.glfwGetKey;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
-
 import org.joml.Vector3f;
+
+import net.infdev.Main;
 
 public class CheckKeyPress {
 	private static boolean tabbedOut = false;
@@ -28,6 +27,7 @@ public class CheckKeyPress {
 		}
 			
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+			// Main.gameEng.physics.changeVelocity(0.01F);
 			cameraPos.add(new Vector3f(cameraUp).mul(cameraSpeed));
 		}
 			

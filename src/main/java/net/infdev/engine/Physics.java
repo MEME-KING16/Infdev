@@ -3,7 +3,7 @@ package net.infdev.engine;
 import org.joml.Vector3f;
 
 public class Physics {
-	private float gravity = 0;//-9.8F;
+	private float gravity = 0;//-0.005F;
     private float velocityY = 0f;
 
 	public void applyPhysics(float delta, Vector3f cameraPos, Vector3f cameraUp, float cameraSpeed) {
@@ -14,5 +14,9 @@ public class Physics {
 
     public void resetVelocity() {
         velocityY = 0f;
+    }
+
+    public void changeVelocity(float amt) {
+        velocityY += amt;
     }
 }
