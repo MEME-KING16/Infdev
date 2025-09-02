@@ -140,7 +140,7 @@ public class Main implements IAppLogic, IGuiInstance {
             camera.moveRight(move);
         }
         if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-            camera.moveBackwards(move);
+            camera.moveDown(move);
         }
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
             camera.moveUp(move);
