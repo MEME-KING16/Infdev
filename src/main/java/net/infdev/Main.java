@@ -159,7 +159,7 @@ public class Main implements IAppLogic, IGuiInstance {
     }
 
     public void updateTerrain(Scene scene) {
-        int cellSize = 10;
+        int cellSize = 1;
         Camera camera = scene.getCamera();
         Vector3f cameraPos = camera.getPosition();
         int cellCol = (int) (cameraPos.x / cellSize);
@@ -168,14 +168,15 @@ public class Main implements IAppLogic, IGuiInstance {
         int numRows = NUM_CHUNKS * 2 + 1;
         int numCols = numRows;
         int zOffset = -NUM_CHUNKS;
-        float scale = cellSize / 2.0f;
+        float scale = cellSize;
         for (int j = 0; j < numRows; j++) {
             int xOffset = -NUM_CHUNKS;
             for (int i = 0; i < numCols; i++) {
                 Entity entity = terrainEntities[j][i];
                 entity.setScale(scale);
-                entity.setPosition((cellCol + xOffset) * 2.0f, 0, (cellRow + zOffset) * 2.0f);
-                entity.getModelMatrix().identity().scale(scale).translate(entity.getPosition());
+                entity.setPosition((cellCol + xOffset) * cellSize, 0, (cellRow + zOffset) * cellSize);
+                entity.getModelMatrix().identity().translate(entity.getPosition()).scale(scale);
+
                 xOffset++;
             }
             zOffset++;

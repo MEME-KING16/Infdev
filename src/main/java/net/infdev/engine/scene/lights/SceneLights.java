@@ -15,7 +15,7 @@ public class SceneLights {
         ambientLight = new AmbientLight();
         pointLights = new ArrayList<>();
         spotLights = new ArrayList<>();
-        dirLight = new DirectionalLight(new Vector3f(1, 1, 1), new Vector3f(0, 1, 0), 1.0f);
+        dirLight = new DirectionalLight(new Vector3f(1, 1, 1), new Vector3f(0, 1, 0), 0.4f);
     }
 
     public AmbientLight getAmbientLight() {
