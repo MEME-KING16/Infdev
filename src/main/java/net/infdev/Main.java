@@ -93,9 +93,9 @@ public class Main implements IAppLogic, IGuiInstance {
         sceneLights.getAmbientLight().setIntensity(0.2f);
         scene.setSceneLights(sceneLights);
 
-        SkyBox skyBox = new SkyBox("models/skybox/skybox.obj", scene.getTextureCache());
-        skyBox.getSkyBoxEntity().setScale(50);
-        scene.setSkyBox(skyBox);
+        // SkyBox skyBox = new SkyBox("models/skybox/skybox.obj", scene.getTextureCache());
+        // skyBox.getSkyBoxEntity().setScale(50);
+        // scene.setSkyBox(skyBox);
 
         scene.getCamera().moveUp(0.1f);
 
@@ -138,6 +138,12 @@ public class Main implements IAppLogic, IGuiInstance {
             camera.moveLeft(move);
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
             camera.moveRight(move);
+        }
+        if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+            camera.moveBackwards(move);
+        }
+        if (window.isKeyPressed(GLFW_KEY_SPACE)) {
+            camera.moveUp(move);
         }
 
         MouseInput mouseInput = window.getMouseInput();
