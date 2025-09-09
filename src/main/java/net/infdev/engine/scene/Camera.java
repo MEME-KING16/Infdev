@@ -30,6 +30,10 @@ public class Camera {
         return position;
     }
 
+    public Vector3f getUp() {
+        return up;
+    }
+
     public Matrix4f getViewMatrix() {
         return viewMatrix;
     }

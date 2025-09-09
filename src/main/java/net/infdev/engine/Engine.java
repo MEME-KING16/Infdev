@@ -15,6 +15,7 @@ public class Engine {
     private Scene scene;
     private int targetFps;
     private int targetUps;
+    private float deltaUpdate;
 
     public Engine(String windowTitle, Window.WindowOptions opts, IAppLogic appLogic) {
         window = new Window(windowTitle, opts, () -> {
@@ -48,7 +49,7 @@ public class Engine {
         long initialTime = System.currentTimeMillis();
         float timeU = 1000.0f / targetUps;
         float timeR = targetFps > 0 ? 1000.0f / targetFps : 0;
-        float deltaUpdate = 0;
+        this.deltaUpdate = 0;
         float deltaFps = 0;
         long updateTime = initialTime;
         IGuiInstance iGuiInstance = scene.getGuiInstance();
@@ -92,5 +93,9 @@ public class Engine {
 
     public void stop() {
         running = false;
+    }
+
+    public float getDeltaTime() {
+        return deltaUpdate;
     }
 }

@@ -58,12 +58,13 @@ public class Main implements IAppLogic, IGuiInstance {
     private Vector4f displInc = new Vector4f();
     private float rotation;
     private LightControls lightControls;
+    private Engine gameEng;
     
 
     public static void main(String[] args) {
         Main main = new Main();
-        Engine gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
-        gameEng.start();
+        main.gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        main.gameEng.start();
     }
 
     @Override
@@ -156,6 +157,7 @@ public class Main implements IAppLogic, IGuiInstance {
     @Override
     public void update(Window window, Scene scene, long diffTimeMillis) {
         updateTerrain(scene);
+        updatePhysics(scene);
     }
 
     public void updateTerrain(Scene scene) {
@@ -181,5 +183,9 @@ public class Main implements IAppLogic, IGuiInstance {
             }
             zOffset++;
         }
+    }
+
+    public void updatePhysics(Scene scene) {
+        scene.getPhysics().applyPhysics(gameEng.getDeltaTime(),scene.getCamera());
     }
 }

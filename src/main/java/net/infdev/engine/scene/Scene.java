@@ -8,6 +8,7 @@ import net.infdev.engine.graph.Model;
 import net.infdev.engine.graph.TextureCache;
 import net.infdev.engine.scene.lights.SceneLights;
 import net.infdev.engine.IGuiInstance;
+import net.infdev.engine.Physics;
 
 public class Scene {
     private Map<String, Model> modelMap;
@@ -17,12 +18,14 @@ public class Scene {
     private SceneLights sceneLights;
     private IGuiInstance guiInstance;
     private SkyBox skyBox;
+    private Physics physics;
 
     public Scene(int width, int height) {
         modelMap = new HashMap<>();
         projection = new Projection(width, height);
 		textureCache = new TextureCache();
         camera = new Camera();
+        physics = new Physics();
     }
 
     public void cleanup() {
@@ -72,6 +75,10 @@ public class Scene {
 
     public SkyBox getSkyBox() {
         return skyBox;
+    }
+
+    public Physics getPhysics() {
+        return physics;
     }
 
     public void setGuiInstance(IGuiInstance guiInstance) {
