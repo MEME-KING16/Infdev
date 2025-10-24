@@ -74,7 +74,7 @@ public class Main implements IAppLogic, IGuiInstance {
     public void init(Window window, Scene scene, Render render) {
 
         SceneLights sceneLights = new SceneLights();
-        sceneLights.getAmbientLight().setIntensity(0.2f);
+        sceneLights.getAmbientLight().setIntensity(1f);
         scene.setSceneLights(sceneLights);
 
         Blocks.registerBlocks(scene);
