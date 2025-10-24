@@ -7,7 +7,7 @@ import net.infdev.engine.scene.Camera;
 public class Physics {
 	private float gravity = 0;//-0.005F;
     private float velocityY = 0f;
-    private float cameraSpeed = 0.1f;
+    // private float cameraSpeed = 0.1f;
 
     public void applyPhysics(float delta, Camera camera) {
             System.out.println("delta=" + delta);

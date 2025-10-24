@@ -17,8 +17,9 @@ import java.util.List;
 
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
-
-
+/**
+ * @deprecated unused
+ */
 public class Block {
 	public float red;
 	public float green;

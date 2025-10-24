@@ -9,6 +9,9 @@ import org.joml.Random;
 import net.infdev.block.Block;
 import net.infdev.block.Blocks;
 
+/*
+ * @deprecated unused
+ */
 public class WorldGen {
     private static List<Block> world;
     /**

@@ -6,6 +6,9 @@ import org.joml.Vector3f;
 
 import net.infdev.Main;
 
+/**
+ * @deprecated unused
+ */
 public class CheckKeyPress {
 	private static boolean tabbedOut = false;
 

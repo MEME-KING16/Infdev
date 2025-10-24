@@ -29,13 +29,13 @@ import net.infdev.engine.scene.Entity;
 import net.infdev.engine.scene.ModelLoader;
 import net.infdev.engine.graph.Model;
 import net.infdev.engine.IGuiInstance;
-
+import net.infdev.util.Chunk;
 
 import org.joml.*;
 
 import java.nio.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -44,22 +44,20 @@ import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
-
 import java.lang.Math;
 
 
 public class Main implements IAppLogic, IGuiInstance {
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.005f;
-    private static final int NUM_CHUNKS = 4;
+    private static final int VIEW_RADIUS = 3;
 
-    private Entity[][] terrainEntities;
-    private Entity cubeEntity;
-    private Vector4f displInc = new Vector4f();
-    private float rotation;
-    private LightControls lightControls;
     private Engine gameEng;
-    
+    private final Map<String, Chunk> loadedChunks = new ConcurrentHashMap<>();
+    private final Set<String> loadingChunks = ConcurrentHashMap.newKeySet();
+    private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
+    private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
+    private Model quadModel;
 
     public static void main(String[] args) {
         Main main = new Main();
@@ -69,39 +67,23 @@ public class Main implements IAppLogic, IGuiInstance {
 
     @Override
     public void cleanup() {
-        // Nothing to be done yet
+        chunkExecutor.shutdownNow();
     }
 
     @Override
     public void init(Window window, Scene scene, Render render) {
-        String quadModelId = "quad-model";
-        Model quadModel = ModelLoader.loadModel("quad-model", "models/block/grass_block.obj",
-                scene.getTextureCache());
-        scene.addModel(quadModel);
-
-        int numRows = NUM_CHUNKS * 2 + 1;
-        int numCols = numRows;
-        terrainEntities = new Entity[numRows][numCols];
-        for (int j = 0; j < numRows; j++) {
-            for (int i = 0; i < numCols; i++) {
-                Entity entity = new Entity("TERRAIN_" + j + "_" + i, quadModelId);
-                terrainEntities[j][i] = entity;
-                scene.addEntity(entity);
-            }
-        }
 
         SceneLights sceneLights = new SceneLights();
         sceneLights.getAmbientLight().setIntensity(0.2f);
         scene.setSceneLights(sceneLights);
+
+        Blocks.registerBlocks(scene);
 
         // SkyBox skyBox = new SkyBox("models/skybox/skybox.obj", scene.getTextureCache());
         // skyBox.getSkyBoxEntity().setScale(50);
         // scene.setSkyBox(skyBox);
 
         scene.getCamera().moveUp(0.1f);
-
-        updateTerrain(scene);
-
     }
 
     @Override
@@ -156,36 +138,68 @@ public class Main implements IAppLogic, IGuiInstance {
 
     @Override
     public void update(Window window, Scene scene, long diffTimeMillis) {
-        updateTerrain(scene);
+        updateChunks(scene);
+        Chunk c;
+        while ((c = readyChunks.poll()) != null) c.uploadToScene(scene);
         updatePhysics(scene);
+        logInfo(scene);
     }
 
-    public void updateTerrain(Scene scene) {
-        int cellSize = 1;
-        Camera camera = scene.getCamera();
-        Vector3f cameraPos = camera.getPosition();
-        int cellCol = (int) (cameraPos.x / cellSize);
-        int cellRow = (int) (cameraPos.z / cellSize);
+    private void logInfo(Scene scene) {
+        float fps = 1000f / gameEng.getDeltaTime();
+        System.out.printf(
+            "\r[FPS: %.1f] [Chunks: %d] [Camera: (%.2f, %.2f, %.2f)]",
+            fps,
+            loadedChunks.size(),
+            scene.getCamera().getPosition().x,
+            scene.getCamera().getPosition().y,
+            scene.getCamera().getPosition().z
+        );
+        System.out.flush();
 
-        int numRows = NUM_CHUNKS * 2 + 1;
-        int numCols = numRows;
-        int zOffset = -NUM_CHUNKS;
-        float scale = cellSize;
-        for (int j = 0; j < numRows; j++) {
-            int xOffset = -NUM_CHUNKS;
-            for (int i = 0; i < numCols; i++) {
-                Entity entity = terrainEntities[j][i];
-                entity.setScale(scale);
-                entity.setPosition((cellCol + xOffset) * cellSize, 0, (cellRow + zOffset) * cellSize);
-                entity.getModelMatrix().identity().translate(entity.getPosition()).scale(scale);
-
-                xOffset++;
-            }
-            zOffset++;
-        }
     }
+
 
     public void updatePhysics(Scene scene) {
-        scene.getPhysics().applyPhysics(gameEng.getDeltaTime(),scene.getCamera());
+        scene.getPhysics().applyPhysics(gameEng.getDeltaTime(), scene.getCamera());
+    }
+
+    private void updateChunks(Scene scene) {
+        Vector3f pos = scene.getCamera().getPosition();
+        int playerChunkX = (int)Math.floor(pos.x / Chunk.CHUNK_SIZE);
+        int playerChunkZ = (int)Math.floor(pos.z / Chunk.CHUNK_SIZE);
+        for (int dz = -VIEW_RADIUS; dz <= VIEW_RADIUS; dz++) {
+            for (int dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
+                int cx = playerChunkX + dx;
+                int cz = playerChunkZ + dz;
+                String key = cx + "_" + cz;
+                if (!loadedChunks.containsKey(key) && !loadingChunks.contains(key)) {
+                    loadingChunks.add(key);
+                    chunkExecutor.submit(() -> {
+                        Chunk c = new Chunk(cx, cz);
+                        c.buildData();
+                        readyChunks.add(c);
+                        loadedChunks.put(key, c);
+                        loadingChunks.remove(key);
+                    });
+                }
+            }
+        }
+        unloadFar(scene, playerChunkX, playerChunkZ);
+    }
+
+    private void unloadFar(Scene scene, int px, int pz) {
+        loadedChunks.entrySet().removeIf(e -> {
+            String[] s = e.getKey().split("_");
+            int cx = Integer.parseInt(s[0]);
+            int cz = Integer.parseInt(s[1]);
+            int dx = Math.abs(cx - px);
+            int dz = Math.abs(cz - pz);
+            if (dx > VIEW_RADIUS + 1 || dz > VIEW_RADIUS + 1) {
+                e.getValue().removeFromScene(scene);
+                return true;
+            }
+            return false;
+        });
     }
 }
