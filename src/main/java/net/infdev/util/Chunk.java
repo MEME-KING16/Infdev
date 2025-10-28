@@ -29,16 +29,28 @@ public class Chunk {
                 int worldX = chunkX * CHUNK_SIZE + x;
                 int worldZ = chunkZ * CHUNK_SIZE + z;
 
-                int height = (int) (SimplexNoise.noise(worldX * 0.03f, worldZ * 0.03f) * 10 + 20);
-                height = Math.max(1, Math.min(CHUNK_HEIGHT - 1, height));
+                // layered noise
+                double base = octaveNoise(worldX, worldZ, 4, 0.5, 0.005);  // large terrain
+                double detail = octaveNoise(worldX + 1000, worldZ + 1000, 2, 0.6, 0.02); // small variation
 
-                for (int y = 0; y <= height; y++) {
-                    if (y == height) {
-                        blocks[x][y][z] = Blocks.GRASS.getId();
-                    } else if (y > height - 3) {
+                // hight
+                double heightVal = base * 28 + detail * 5 + 32;  // base amplitude + offset
+                int height = (int) Math.max(1, Math.min(CHUNK_HEIGHT - 1, heightVal));
+
+                // sea
+                int seaLevel = 32;
+                for (int y = 0; y < CHUNK_HEIGHT; y++) {
+                    if (y < height - 4) {
+                        blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.STONE.getId();
+                    } else if (y < height - 1) {
                         blocks[x][y][z] = Blocks.DIRT.getId();
+                    } else if (y == height) {
+                        if (height < seaLevel) blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.SAND.getId();
+                        else blocks[x][y][z] = Blocks.GRASS.getId();
+                    } else if (y <= seaLevel && y > height) {
+                        blocks[x][y][z] = Blocks.GRASS.getId(); //Blocks.WATER.getId();
                     } else {
-                        //blocks[x][y][z] = Blocks.STONE.getId();
+                        blocks[x][y][z] = Blocks.AIR.getId();
                     }
                 }
             }
@@ -46,6 +58,24 @@ public class Chunk {
 
         generateVisibleBlocks();
     }
+
+    private double octaveNoise(double x, double z, int octaves, double persistence, double scale) {
+        double total = 0;
+        double amplitude = 1;
+        double frequency = scale;
+        double maxValue = 0;
+
+        for (int i = 0; i < octaves; i++) {
+            total += SimplexNoise.noise((float) (x * frequency), (float) (z * frequency)) * amplitude;
+            maxValue += amplitude;
+            amplitude *= persistence;
+            frequency *= 2.0;
+        }
+
+        return total / maxValue;
+    }
+
+
 
     private void generateVisibleBlocks() {
         for (int x = 0; x < CHUNK_SIZE; x++) {
