@@ -11,7 +11,7 @@ import java.util.List;
 
 public class Chunk {
     public static final int CHUNK_SIZE = 16;
-    public static final int CHUNK_HEIGHT = 64;
+    public static final int CHUNK_HEIGHT = 128;
 
     private final int chunkX;
     private final int chunkZ;
@@ -30,11 +30,23 @@ public class Chunk {
                 int worldZ = chunkZ * CHUNK_SIZE + z;
 
                 // layered noise
-                double base = octaveNoise(worldX, worldZ, 4, 0.5, 0.005);  // large terrain
+                double base = octaveNoise(worldX, worldZ, 4, 0.5, 0.01);  // large terrain
                 double detail = octaveNoise(worldX + 1000, worldZ + 1000, 2, 0.6, 0.02); // small variation
 
-                // hight
-                double heightVal = base * 28 + detail * 5 + 32;  // base amplitude + offset
+                // mountain and mask noise
+                double mountains = octaveNoise(worldX, worldZ, 5, 0.45, 0.0025);
+                mountains = 1.0 - Math.abs(mountains);   // ridged peaks
+                mountains = Math.pow(mountains, 2.0);    //flaten 
+                mountains *= 2; // amp
+
+                double hills = octaveNoise(worldX + 5000, worldZ + 5000, 4, 0.5, 0.0075);
+
+                double continent = octaveNoise(worldX, worldZ, 2, 0.5, 0.001);
+                continent = (continent + 1.0) / 2.0;     // normalize to 0–1
+                double mask = Math.pow(continent, 2.5);  // where mountains appear
+
+                // height
+                double heightVal = (base * 15) + (hills * 20 + mountains * 50) * mask + detail * 3 + 32;  // base amplitude + offset
                 int height = (int) Math.max(1, Math.min(CHUNK_HEIGHT - 1, heightVal));
 
                 // sea
@@ -48,7 +60,7 @@ public class Chunk {
                         if (height < seaLevel) blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.SAND.getId();
                         else blocks[x][y][z] = Blocks.GRASS.getId();
                     } else if (y <= seaLevel && y > height) {
-                        blocks[x][y][z] = Blocks.GRASS.getId(); //Blocks.WATER.getId();
+                        blocks[x][y][z] = Blocks.DIRT.getId(); //Blocks.WATER.getId();
                     } else {
                         blocks[x][y][z] = Blocks.AIR.getId();
                     }
