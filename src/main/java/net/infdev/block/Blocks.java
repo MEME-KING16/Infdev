@@ -1,17 +1,11 @@
 package net.infdev.block;
 
 import net.infdev.api.Registries;
-import net.infdev.api.Registry;
 import net.infdev.engine.graph.Material;
 import net.infdev.engine.graph.Model;
-import net.infdev.engine.graph.TextureCache;
 import net.infdev.engine.scene.ModelLoader;
 import net.infdev.engine.scene.Scene;
-import net.infdev.Main;
 import net.infdev.api.Block;
-
-import java.util.Iterator;
-import java.util.function.ToIntFunction;
 
 public class Blocks {
 

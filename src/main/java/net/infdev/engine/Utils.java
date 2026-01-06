@@ -2,7 +2,6 @@ package net.infdev.engine;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.*;
 
 public class Utils {
 

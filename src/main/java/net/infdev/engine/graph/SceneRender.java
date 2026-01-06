@@ -1,6 +1,5 @@
 package net.infdev.engine.graph;
 
-import net.infdev.engine.Window;
 import net.infdev.engine.scene.Entity;
 import net.infdev.engine.scene.Scene;
 import net.infdev.engine.scene.lights.AmbientLight;

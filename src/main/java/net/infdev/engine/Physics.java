@@ -1,6 +1,5 @@
 package net.infdev.engine;
 
-import org.joml.Vector3f;
 
 import net.infdev.engine.scene.Camera;
 

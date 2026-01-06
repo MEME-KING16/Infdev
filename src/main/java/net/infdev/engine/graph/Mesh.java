@@ -1,7 +1,6 @@
 package net.infdev.engine.graph;
 
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;

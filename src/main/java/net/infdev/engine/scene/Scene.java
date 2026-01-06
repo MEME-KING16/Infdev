@@ -3,7 +3,6 @@ package net.infdev.engine.scene;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.infdev.engine.graph.Mesh;
 import net.infdev.engine.graph.Model;
 import net.infdev.engine.graph.TextureCache;
 import net.infdev.engine.scene.lights.SceneLights;

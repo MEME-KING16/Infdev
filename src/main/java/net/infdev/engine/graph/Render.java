@@ -4,7 +4,6 @@ import org.lwjgl.opengl.GL;
 
 import net.infdev.engine.Window;
 import net.infdev.engine.scene.Scene;
-import net.infdev.engine.graph.GuiRender;
 
 import static org.lwjgl.opengl.GL11.*;
 

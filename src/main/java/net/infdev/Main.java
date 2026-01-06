@@ -1,48 +1,25 @@
 package net.infdev;
 
-import org.lwjgl.*;
-import org.lwjgl.opengl.*;
-
 import imgui.*;
 import imgui.flag.ImGuiCond;
-import imgui.flag.ImGuiKey;
-import imgui.type.ImInt;
-
-import net.infdev.block.Block;
 import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
 import net.infdev.engine.MouseInput;
 import net.infdev.engine.Window;
-import net.infdev.engine.graph.Material;
-import net.infdev.engine.graph.Mesh;
 import net.infdev.engine.graph.Render;
-import net.infdev.engine.graph.Texture;
 import net.infdev.engine.scene.Scene;
-import net.infdev.engine.scene.SkyBox;
-import net.infdev.engine.scene.lights.PointLight;
 import net.infdev.engine.scene.lights.SceneLights;
-import net.infdev.engine.scene.lights.SpotLight;
-import net.infdev.util.WorldGen;
 import net.infdev.engine.scene.Camera;
-import net.infdev.engine.scene.Entity;
-import net.infdev.engine.scene.ModelLoader;
-import net.infdev.engine.graph.Model;
 import net.infdev.engine.IGuiInstance;
 import net.infdev.util.Chunk;
 
 import org.joml.*;
 
-import java.nio.*;
 import java.util.*;
 import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.*;
-import static org.lwjgl.system.MemoryUtil.*;
 
 import java.lang.Math;
 
@@ -57,7 +34,6 @@ public class Main implements IAppLogic, IGuiInstance {
     private final Set<String> loadingChunks = ConcurrentHashMap.newKeySet();
     private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
-    private Model quadModel;
 
     public static void main(String[] args) {
         Main main = new Main();

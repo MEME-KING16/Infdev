@@ -1,9 +1,7 @@
 package net.infdev.engine;
 
-import net.infdev.Main;
 import net.infdev.engine.graph.Render;
 import net.infdev.engine.scene.Scene;
-import net.infdev.engine.IGuiInstance;
 
 
 public class Engine {

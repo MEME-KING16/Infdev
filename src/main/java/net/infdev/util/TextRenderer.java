@@ -5,15 +5,12 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
-import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
-import org.lwjgl.opengl.GL33C;
 import org.lwjgl.stb.STBTTFontinfo;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -26,7 +23,6 @@ import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.stb.STBTruetype.*;
 import static org.lwjgl.system.MemoryStack.stackPush;
 

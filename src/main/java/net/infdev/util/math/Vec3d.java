@@ -1,7 +1,5 @@
 package net.infdev.util.math;
 
-import net.infdev.util.math.Position;
-
 public class Vec3d implements Position {
 	public static final Vec3d ZERO = new Vec3d(0.0, 0.0, 0.0);
 	public final double x;
