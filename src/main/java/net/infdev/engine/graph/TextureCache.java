@@ -3,12 +3,11 @@ package net.infdev.engine.graph;
 import java.util.*;
 
 public class TextureCache {
-    public static final String DEFAULT_TEXTURE = "models/block/grass_block.png";
+    public static final String DEFAULT_TEXTURE = "models/block/stone.png";
     private Map<String, Texture> textureMap;
 
     public TextureCache() {
         textureMap = new HashMap<>();
-        textureMap.put(DEFAULT_TEXTURE, new Texture(DEFAULT_TEXTURE));
     }
 
     public void cleanup() {
@@ -26,7 +25,12 @@ public class TextureCache {
         }
         if (texture == null) {
             texture = textureMap.get(DEFAULT_TEXTURE);
+            System.err.println("Texture not found in cache: " + texturePath + ", using default texture.");
         }
         return texture;
+    }
+
+    public void addTexture(String texturePath) {
+        textureMap.put(texturePath, new Texture(texturePath));
     }
 }

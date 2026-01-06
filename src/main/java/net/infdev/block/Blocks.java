@@ -2,6 +2,8 @@ package net.infdev.block;
 
 import net.infdev.api.Registries;
 import net.infdev.api.Registry;
+import net.infdev.engine.graph.Material;
+import net.infdev.engine.graph.Model;
 import net.infdev.engine.graph.TextureCache;
 import net.infdev.engine.scene.ModelLoader;
 import net.infdev.engine.scene.Scene;
@@ -24,17 +26,29 @@ public class Blocks {
 	public static final Block GRASS = new Block("Grass", GREEN);
 	  
 	public static void registerBlocks(Scene scene) {
+		scene.getTextureCache().addTexture("models/block/stone.png");
+		scene.getTextureCache().addTexture("models/block/dirt_block.png");
+		scene.getTextureCache().addTexture("models/block/grass_block.png");
 		STONE.setModel(ModelLoader.loadModel("stone", "models/block/stone.obj", scene.getTextureCache()));
         DIRT.setModel(ModelLoader.loadModel("dirt_block", "models/block/dirt_block.obj", scene.getTextureCache()));
         GRASS.setModel(ModelLoader.loadModel("grass_block", "models/block/grass_block.obj", scene.getTextureCache()));
-
+		setModelTexture(STONE.getModel(), "models/block/stone.png");
+		setModelTexture(DIRT.getModel(), "models/block/dirt_block.png");
+		setModelTexture(GRASS.getModel(), "models/block/grass_block.png");
 		scene.addModel(STONE.getModel());
 		scene.addModel(DIRT.getModel());
 		scene.addModel(GRASS.getModel());
+		
 
 		Registries.BLOCK.register("air", AIR);
 		Registries.BLOCK.register("stone", STONE);
 		Registries.BLOCK.register("dirt_block", DIRT);
 		Registries.BLOCK.register("grass_block", GRASS);
+	}
+
+	private static void setModelTexture(Model model, String texturePath) {
+		for (Material material : model.getMaterialList()) {
+			material.setTexturePath(texturePath);
+		}
 	}
 }

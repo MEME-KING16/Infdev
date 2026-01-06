@@ -53,12 +53,12 @@ public class Chunk {
                 int seaLevel = 32;
                 for (int y = 0; y < CHUNK_HEIGHT; y++) {
                     if (y < height - 4) {
-                        blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.STONE.getId();
+                        blocks[x][y][z] = Blocks.STONE.getId();
                     } else if (y < height - 1) {
                         blocks[x][y][z] = Blocks.DIRT.getId();
                     } else if (y == height) {
                         if (height < seaLevel) blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.SAND.getId();
-                        else blocks[x][y][z] = Blocks.GRASS.getId();
+                        else blocks[x][y][z] = Blocks.GRASS.getId(); //grass
                     } else if (y <= seaLevel && y > height) {
                         blocks[x][y][z] = Blocks.DIRT.getId(); //Blocks.WATER.getId();
                     } else {
@@ -124,6 +124,8 @@ public class Chunk {
         int worldZ = chunkZ * CHUNK_SIZE + z;
 
         Entity e = new Entity("block_" + chunkX + "_" + chunkZ + "_" + x + "_" + y + "_" + z, model.getId());
+        if (blockId != Blocks.STONE.getId())
+        System.out.println(blockId);
         e.setPosition(worldX, y, worldZ);
         e.setScale(1.0f);
         e.getModelMatrix().identity().translate(e.getPosition()).scale(1.0f);
