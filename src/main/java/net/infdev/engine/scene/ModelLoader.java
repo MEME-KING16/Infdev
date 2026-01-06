@@ -17,9 +17,6 @@ import static org.lwjgl.assimp.Assimp.*;
 
 public class ModelLoader {
 
-    public static final String skibidi_toilet = "ohio fanum tax rizzler";
-
-
     private ModelLoader() {
         // Utility class
     }
