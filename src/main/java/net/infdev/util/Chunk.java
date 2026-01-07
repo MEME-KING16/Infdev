@@ -57,10 +57,10 @@ public class Chunk {
                     } else if (y < height - 1) {
                         blocks[x][y][z] = Blocks.DIRT.getId();
                     } else if (y == height) {
-                        if (height < seaLevel) blocks[x][y][z] = Blocks.DIRT.getId();//Blocks.SAND.getId();
+                        if (height < seaLevel) blocks[x][y][z] = Blocks.SAND.getId();
                         else blocks[x][y][z] = Blocks.GRASS.getId(); //grass
                     } else if (y <= seaLevel && y > height) {
-                        blocks[x][y][z] = Blocks.DIRT.getId(); //Blocks.WATER.getId();
+                        blocks[x][y][z] = Blocks.WATER.getId();
                     } else {
                         blocks[x][y][z] = Blocks.AIR.getId();
                     }
@@ -137,6 +137,8 @@ public class Chunk {
         if (blockId == Blocks.GRASS.getId()) return Blocks.GRASS.getModel();
         if (blockId == Blocks.DIRT.getId()) return Blocks.DIRT.getModel();
         if (blockId == Blocks.STONE.getId()) return Blocks.STONE.getModel();
+        if (blockId == Blocks.WATER.getId()) return Blocks.WATER.getModel();
+        if (blockId == Blocks.SAND.getId()) return Blocks.SAND.getModel();
         return null;
     }
 

@@ -9,35 +9,42 @@ import net.infdev.api.Block;
 
 public class Blocks {
 
-	private static float[] GREY = { 0.5f, 0.5f, 0.5f };
-	private static float[] BROWN = { 0.588f, 0.294f, 0f };
-	private static float[] GREEN = { 0F, 1F, 0F };
-	private static float[] NOTHING = { 0f, 0f, 0f };
 
-	public static final Block AIR = new Block("Air", NOTHING);
-	public static final Block STONE = new Block("Stone", GREY);
-	public static final Block DIRT = new Block("Dirt", BROWN);
-	public static final Block GRASS = new Block("Grass", GREEN);
-	  
+	public static final Block AIR = new Block("Air");
+	public static final Block STONE = new Block("Stone");
+	public static final Block DIRT = new Block("Dirt");
+	public static final Block GRASS = new Block("Grass");
+	public static final Block WATER = new Block("Water");
+	public static final Block SAND = new Block("Sand");
+
 	public static void registerBlocks(Scene scene) {
 		scene.getTextureCache().addTexture("models/block/stone.png");
-		scene.getTextureCache().addTexture("models/block/dirt_block.png");
+		scene.getTextureCache().addTexture("models/block/dirt.png");
 		scene.getTextureCache().addTexture("models/block/grass_block.png");
+		scene.getTextureCache().addTexture("models/block/water.png");
+		scene.getTextureCache().addTexture("models/block/sand.png");
 		STONE.setModel(ModelLoader.loadModel("stone", "models/block/stone.obj", scene.getTextureCache()));
-        DIRT.setModel(ModelLoader.loadModel("dirt_block", "models/block/dirt_block.obj", scene.getTextureCache()));
+        DIRT.setModel(ModelLoader.loadModel("dirt", "models/block/dirt.obj", scene.getTextureCache()));
         GRASS.setModel(ModelLoader.loadModel("grass_block", "models/block/grass_block.obj", scene.getTextureCache()));
+        WATER.setModel(ModelLoader.loadModel("water", "models/block/water.obj", scene.getTextureCache()));
+        SAND.setModel(ModelLoader.loadModel("sand", "models/block/sand.obj", scene.getTextureCache()));
 		setModelTexture(STONE.getModel(), "models/block/stone.png");
-		setModelTexture(DIRT.getModel(), "models/block/dirt_block.png");
+		setModelTexture(DIRT.getModel(), "models/block/dirt.png");
 		setModelTexture(GRASS.getModel(), "models/block/grass_block.png");
+		setModelTexture(WATER.getModel(), "models/block/water.png");
+		setModelTexture(SAND.getModel(), "models/block/sand.png");
 		scene.addModel(STONE.getModel());
 		scene.addModel(DIRT.getModel());
 		scene.addModel(GRASS.getModel());
-		
+		scene.addModel(WATER.getModel());
+		scene.addModel(SAND.getModel());
 
 		Registries.BLOCK.register("air", AIR);
 		Registries.BLOCK.register("stone", STONE);
-		Registries.BLOCK.register("dirt_block", DIRT);
+		Registries.BLOCK.register("dirt", DIRT);
 		Registries.BLOCK.register("grass_block", GRASS);
+		Registries.BLOCK.register("water", WATER);
+		Registries.BLOCK.register("sand", SAND);
 	}
 
 	private static void setModelTexture(Model model, String texturePath) {
