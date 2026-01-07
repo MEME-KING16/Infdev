@@ -12,6 +12,7 @@ import net.infdev.engine.scene.Scene;
 import net.infdev.engine.scene.lights.SceneLights;
 import net.infdev.engine.scene.Camera;
 import net.infdev.engine.IGuiInstance;
+import net.infdev.util.BlockRaycast;
 import net.infdev.util.Chunk;
 
 import org.joml.*;
@@ -106,7 +107,36 @@ public class Main implements IAppLogic, IGuiInstance {
         }
 
         MouseInput mouseInput = window.getMouseInput();
-        if (mouseInput.isRightButtonPressed()) {
+        if (mouseInput.isRightButtonPressed() && !inputConsumed) {
+        Vector3f camPos = camera.getPosition();
+        Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
+        
+        BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
+            camPos, camDir, loadedChunks, 5.0f
+        );
+        
+        if (result.hit) {
+            
+            int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
+            int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
+            String key = chunkX + "_" + chunkZ;
+            
+            Chunk c = loadedChunks.get(key);
+            if (c != null) {
+                int localX = result.previousBlockPos.x - (chunkX * Chunk.CHUNK_SIZE);
+                int localZ = result.previousBlockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+                
+                c.setBlock(localX, result.previousBlockPos.y, localZ, Blocks.STONE.getId());
+                c.removeFromScene(scene);
+                c.rebuildMesh();
+                c.uploadToScene(scene);
+                
+            } else {
+                System.out.println("CHUNK NOT FOUND: " + key);
+            }
+        }
+    }
+        if (mouseInput.isLeftButtonPressed()) {
             Vector2f displVec = mouseInput.getDisplVec();
             camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
         }
@@ -116,9 +146,13 @@ public class Main implements IAppLogic, IGuiInstance {
     public void update(Window window, Scene scene, long diffTimeMillis) {
         updateChunks(scene);
         Chunk c;
-        while ((c = readyChunks.poll()) != null) c.uploadToScene(scene);
+        while ((c = readyChunks.poll()) != null) {
+            String key = c.getChunkX() + "_" + c.getChunkZ();
+            loadedChunks.put(key, c);
+            c.uploadToScene(scene);
+        }
         updatePhysics(scene);
-        logInfo(scene);
+        //logInfo(scene);
     }
 
     private void logInfo(Scene scene) {
@@ -155,7 +189,6 @@ public class Main implements IAppLogic, IGuiInstance {
                         Chunk c = new Chunk(cx, cz);
                         c.buildData();
                         readyChunks.add(c);
-                        loadedChunks.put(key, c);
                         loadingChunks.remove(key);
                     });
                 }

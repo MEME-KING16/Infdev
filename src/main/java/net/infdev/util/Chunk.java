@@ -87,6 +87,11 @@ public class Chunk {
         return total / maxValue;
     }
 
+    //mesh soon
+    public void rebuildMesh() {
+        entities.clear();
+        generateVisibleBlocks();
+    }
 
 
     private void generateVisibleBlocks() {
@@ -116,6 +121,10 @@ public class Chunk {
         return blocks[x][y][z] == Blocks.AIR.getId();
     }
 
+    public boolean hasBlockAt(int x, int y, int z) {
+        return blocks[x][y][z] != Blocks.AIR.getId();
+    }
+
     private void addBlockEntity(int x, int y, int z, byte blockId) {
         Model model = getModelForBlock(blockId);
         if (model == null) return;
@@ -124,13 +133,17 @@ public class Chunk {
         int worldZ = chunkZ * CHUNK_SIZE + z;
 
         Entity e = new Entity("block_" + chunkX + "_" + chunkZ + "_" + x + "_" + y + "_" + z, model.getId());
-        if (blockId != Blocks.STONE.getId())
-        System.out.println(blockId);
         e.setPosition(worldX, y, worldZ);
         e.setScale(1.0f);
         e.getModelMatrix().identity().translate(e.getPosition()).scale(1.0f);
 
         entities.add(e);
+    }
+
+    public void setBlock(int x, int y, int z, byte blockId) {
+        if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE)
+            return;
+        blocks[x][y][z] = blockId;
     }
 
     private Model getModelForBlock(byte blockId) {
@@ -150,5 +163,16 @@ public class Chunk {
     public void removeFromScene(Scene scene) {
         for (Entity e : entities)
             scene.removeEntity(e);
+    }
+
+    public String getChunkX() {
+        return Integer.toString(chunkX);
+    }
+
+    public String getChunkZ() {
+        return Integer.toString(chunkZ);
+    }
+    public List<Entity> getEntities() {
+        return entities;
     }
 }
