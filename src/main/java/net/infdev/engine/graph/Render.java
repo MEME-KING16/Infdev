@@ -15,10 +15,10 @@ public class Render {
     public Render(Window window) {
         GL.createCapabilities();
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        //glEnable(GL_CULL_FACE);
+        //glCullFace(GL_BACK);
 
-        glFrontFace(GL_CCW);
+        //glFrontFace(GL_CCW);
         glEnable(GL_BLEND);
         guiRender = new GuiRender(window);
         sceneRender = new SceneRender();

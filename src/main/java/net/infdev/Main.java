@@ -28,7 +28,7 @@ import java.lang.Math;
 public class Main implements IAppLogic, IGuiInstance {
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.005f;
-    private static final int VIEW_RADIUS = 3;
+    private static final int VIEW_RADIUS = 10;
 
     private Engine gameEng;
     private final Map<String, Chunk> loadedChunks = new ConcurrentHashMap<>();
@@ -55,6 +55,8 @@ public class Main implements IAppLogic, IGuiInstance {
         scene.setSceneLights(sceneLights);
 
         Blocks.registerBlocks(scene);
+        
+        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         // SkyBox skyBox = new SkyBox("models/skybox/skybox.obj", scene.getTextureCache());
         // skyBox.getSkyBoxEntity().setScale(50);
@@ -67,7 +69,7 @@ public class Main implements IAppLogic, IGuiInstance {
     public void drawGui() {
         ImGui.newFrame();
         ImGui.setNextWindowPos(0, 0, ImGuiCond.Always);
-        ImGui.showDemoWindow();
+        //ImGui.showDemoWindow();
         ImGui.endFrame();
         ImGui.render();
     }
@@ -108,38 +110,37 @@ public class Main implements IAppLogic, IGuiInstance {
 
         MouseInput mouseInput = window.getMouseInput();
         if (mouseInput.isRightButtonPressed() && !inputConsumed) {
-        Vector3f camPos = camera.getPosition();
-        Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
-        
-        BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
-            camPos, camDir, loadedChunks, 5.0f
-        );
-        
-        if (result.hit) {
+            Vector3f camPos = camera.getPosition();
+            Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
             
-            int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
-            int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
-            String key = chunkX + "_" + chunkZ;
+            BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
+                camPos, camDir, loadedChunks, 5.0f
+            );
             
-            Chunk c = loadedChunks.get(key);
-            if (c != null) {
-                int localX = result.previousBlockPos.x - (chunkX * Chunk.CHUNK_SIZE);
-                int localZ = result.previousBlockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+            if (result.hit) {
                 
-                c.setBlock(localX, result.previousBlockPos.y, localZ, Blocks.STONE.getId());
-                c.removeFromScene(scene);
-                c.rebuildMesh();
-                c.uploadToScene(scene);
+                int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
+                int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
+                String key = chunkX + "_" + chunkZ;
                 
-            } else {
-                System.out.println("CHUNK NOT FOUND: " + key);
+                Chunk c = loadedChunks.get(key);
+                if (c != null) {
+                    int localX = result.previousBlockPos.x - (chunkX * Chunk.CHUNK_SIZE);
+                    int localZ = result.previousBlockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+                    
+                    c.setBlock(localX, result.previousBlockPos.y, localZ, Blocks.STONE.getId());
+                    c.removeFromScene(scene);
+                    c.rebuildMesh();
+                    c.uploadToScene(scene);
+                    
+                } else {
+                    System.out.println("CHUNK NOT FOUND: " + key);
+                }
             }
         }
-    }
-        if (mouseInput.isLeftButtonPressed()) {
-            Vector2f displVec = mouseInput.getDisplVec();
-            camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
-        }
+        
+        Vector2f displVec = mouseInput.getDisplVec();
+        camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
     }
 
     @Override
@@ -149,6 +150,7 @@ public class Main implements IAppLogic, IGuiInstance {
         while ((c = readyChunks.poll()) != null) {
             String key = c.getChunkX() + "_" + c.getChunkZ();
             loadedChunks.put(key, c);
+            c.buildMesh();
             c.uploadToScene(scene);
         }
         updatePhysics(scene);
