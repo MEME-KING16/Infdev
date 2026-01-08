@@ -138,6 +138,36 @@ public class Main implements IAppLogic, IGuiInstance {
                 }
             }
         }
+
+        if (mouseInput.isLeftButtonPressed() && !inputConsumed) {
+            Vector3f camPos = camera.getPosition();
+            Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
+            
+            BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
+                camPos, camDir, loadedChunks, 5.0f
+            );
+            
+            if (result.hit) {
+                
+                int chunkX = (int) Math.floor((double) result.blockPos.x / Chunk.CHUNK_SIZE);
+                int chunkZ = (int) Math.floor((double) result.blockPos.z / Chunk.CHUNK_SIZE);
+                String key = chunkX + "_" + chunkZ;
+                
+                Chunk c = loadedChunks.get(key);
+                if (c != null) {
+                    int localX = result.blockPos.x - (chunkX * Chunk.CHUNK_SIZE);
+                    int localZ = result.blockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+                    
+                    c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
+                    c.removeFromScene(scene);
+                    c.rebuildMesh();
+                    c.uploadToScene(scene);
+                    
+                } else {
+                    System.out.println("CHUNK NOT FOUND: " + key);
+                }
+            }
+        }
         
         Vector2f displVec = mouseInput.getDisplVec();
         camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
