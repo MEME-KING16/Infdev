@@ -6,6 +6,7 @@ import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
 import net.infdev.engine.MouseInput;
+import net.infdev.engine.Physics;
 import net.infdev.engine.Window;
 import net.infdev.engine.graph.Render;
 import net.infdev.engine.scene.Scene;
@@ -35,9 +36,10 @@ public class Main implements IAppLogic, IGuiInstance {
     private final Set<String> loadingChunks = ConcurrentHashMap.newKeySet();
     private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
+    public static Main main;
 
     public static void main(String[] args) {
-        Main main = new Main();
+        main = new Main();
         main.gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
         main.gameEng.start();
     }
@@ -62,7 +64,7 @@ public class Main implements IAppLogic, IGuiInstance {
         // skyBox.getSkyBoxEntity().setScale(50);
         // scene.setSkyBox(skyBox);
 
-        scene.getCamera().moveUp(0.1f);
+        scene.getCamera().moveUp(100f);
     }
 
     @Override
@@ -86,27 +88,50 @@ public class Main implements IAppLogic, IGuiInstance {
         return imGuiIO.getWantCaptureMouse() || imGuiIO.getWantCaptureKeyboard();
     }
 
+
     @Override
     public void input(Window window, Scene scene, long diffTimeMillis, boolean inputConsumed) {
         float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
+        Vector3f oldPos = new Vector3f(camera.getPosition());
 
         if (window.isKeyPressed(GLFW_KEY_W)) {
             camera.moveForward(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         } else if (window.isKeyPressed(GLFW_KEY_S)) {
             camera.moveBackwards(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         }
         if (window.isKeyPressed(GLFW_KEY_A)) {
             camera.moveLeft(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
             camera.moveRight(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         }
         if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
             camera.moveDown(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         }
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
-            camera.moveUp(move);
+            scene.getPhysics().resetVelocity();;
+            scene.getPhysics().changeVelocity(move);
+            if (Physics.checkCollision(camera.getPosition())) {
+                camera.getPosition().set(oldPos);
+            }
         }
+
+        oldPos.set(camera.getPosition());
 
         MouseInput mouseInput = window.getMouseInput();
         if (mouseInput.isRightButtonPressed() && !inputConsumed) {
@@ -227,6 +252,10 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
         unloadFar(scene, playerChunkX, playerChunkZ);
+    }
+
+    public Map<String, Chunk> getLoadedChunks() {
+        return loadedChunks;
     }
 
     private void unloadFar(Scene scene, int px, int pz) {

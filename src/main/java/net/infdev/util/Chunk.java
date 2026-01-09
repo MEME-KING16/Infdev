@@ -323,6 +323,12 @@ public class Chunk {
         blocks[x][y][z] = blockId;
     }
 
+    public byte getBlock(int x, int y, int z) {
+        if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE)
+            return Blocks.AIR.getId();
+        return blocks[x][y][z];
+    }
+
     public void uploadToScene(Scene scene) {
         if (!inScene) {
             for (Model model : models) {
