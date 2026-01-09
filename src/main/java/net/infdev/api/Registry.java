@@ -12,23 +12,23 @@ public class Registry<T> {
      * @param id The ID you want to give to the registered thing
      * @param value The data you want to put in the registered thing
      */
-	public void register(String id, T value) {
-		if (entries.containsKey(id)) {
-			throw new IllegalArgumentException("Duplicate id: " + id);
+	public void register(String namespace, String id, T value) {
+		if (entries.containsKey(namespace + ":" + id)) {
+			throw new IllegalArgumentException("Duplicate id: " + id + " in namespace: " + namespace);
 		}
-        
-		entries.put(id, value);
+
+		entries.put(namespace + ":" + id, value);
 	}
 
     /**
-     * Get from the registy
+     * Get from the registry
      * 
      * @param id The ID of the registered thing you want to get
      * 
      * @return The registered thing that has the ID
      */
-	public T get(String id) {
-		return entries.get(id);
+	public T get(String namespace, String id) {
+		return entries.get(namespace + ":" + id);
 	}
 
     /**
