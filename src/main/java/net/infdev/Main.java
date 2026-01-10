@@ -1,7 +1,10 @@
 package net.infdev;
 
 import imgui.*;
+import imgui.flag.ImGuiCol;
 import imgui.flag.ImGuiCond;
+import imgui.flag.ImGuiStyleVar;
+import imgui.flag.ImGuiWindowFlags;
 import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
@@ -27,6 +30,14 @@ import java.lang.Math;
 
 
 public class Main implements IAppLogic, IGuiInstance {
+    enum GameState {
+        MENU,
+        PLAYING,
+        PAUSED
+    }
+    
+    private GameState currentState = GameState.MENU;
+    
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.005f;
     private static final int VIEW_RADIUS = 10;
@@ -37,6 +48,7 @@ public class Main implements IAppLogic, IGuiInstance {
     private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
     public static Main main;
+    private Window window;
 
     public static void main(String[] args) {
         main = new Main();
@@ -52,17 +64,19 @@ public class Main implements IAppLogic, IGuiInstance {
     @Override
     public void init(Window window, Scene scene, Render render) {
 
+        this.window = window;
+
         SceneLights sceneLights = new SceneLights();
         sceneLights.getAmbientLight().setIntensity(1f);
         scene.setSceneLights(sceneLights);
+        scene.setGuiInstance(this);
 
         Blocks.registerBlocks(scene);
         
-        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-        // SkyBox skyBox = new SkyBox("models/skybox/skybox.obj", scene.getTextureCache());
-        // skyBox.getSkyBoxEntity().setScale(50);
-        // scene.setSkyBox(skyBox);
+        // Don't capture cursor in menu
+        if (currentState == GameState.PLAYING) {
+            glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
 
         scene.getCamera().moveUp(90f);
     }
@@ -71,9 +85,116 @@ public class Main implements IAppLogic, IGuiInstance {
     public void drawGui() {
         ImGui.newFrame();
         ImGui.setNextWindowPos(0, 0, ImGuiCond.Always);
-        //ImGui.showDemoWindow();
+        
+        if (currentState == GameState.MENU) {
+            renderMenu();
+        }
+        
         ImGui.endFrame();
         ImGui.render();
+    }
+    
+    private void renderMenu() {
+        ImGuiIO io = ImGui.getIO();
+        float windowWidth = io.getDisplaySizeX();
+        float windowHeight = io.getDisplaySizeY();
+        
+        ImGui.setNextWindowPos(0, 0);
+        ImGui.setNextWindowSize(windowWidth, windowHeight);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.0f, 0.0f);
+        
+        int windowFlags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | 
+                        ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoScrollbar | 
+                        ImGuiWindowFlags.NoSavedSettings;
+        
+        ImGui.begin("MainMenu", windowFlags);
+        
+        ImDrawList drawList = ImGui.getWindowDrawList();
+        drawList.addRectFilled(0, 0, windowWidth, windowHeight, 
+                            ImGui.getColorU32(0.15f, 0.15f, 0.15f, 1.0f));
+        
+        float buttonWidth = 400;
+        float buttonHeight = 40;
+        float spacing = 20;
+        float titleHeight = 100;
+        
+        float totalHeight = titleHeight + (buttonHeight * 3) + (spacing * 2);
+        float startY = (windowHeight - totalHeight) / 2;
+        float centerX = (windowWidth - buttonWidth) / 2;
+        
+        ImGui.setCursorPos(0, startY);
+        
+        String title = "INFDEV";
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        float titleWidth = ImGui.calcTextSize(title).x * 2;
+        ImGui.setCursorPos((windowWidth - titleWidth) / 2, startY);
+        
+        float titleScale = 4.0f;
+        float titleTextWidth = ImGui.calcTextSize(title).x * titleScale;
+        float titleX = (windowWidth - titleTextWidth) / 2;
+        
+        ImGui.setWindowFontScale(titleScale);
+        
+        ImGui.setCursorPos(titleX + 4, startY + 4);
+        ImGui.pushStyleColor(ImGuiCol.Text, 0.0f, 0.0f, 0.0f, 0.25f);
+        ImGui.text(title);
+        ImGui.popStyleColor();
+        
+        ImGui.setCursorPos(titleX, startY);
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        ImGui.text(title);
+        ImGui.popStyleColor();
+        
+        ImGui.setWindowFontScale(1.0f);
+        
+        ImGui.popStyleColor();
+        
+        float buttonY = startY + titleHeight;
+        
+        ImGui.setCursorPos(centerX, buttonY);
+        
+        ImGui.pushStyleColor(ImGuiCol.Button, 0.0f, 0.0f, 0.0f, 0.5f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, 0.3f, 0.3f, 0.8f, 0.8f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonActive, 0.2f, 0.2f, 0.6f, 1.0f);
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.FrameBorderSize, 2.0f);
+        ImGui.pushStyleColor(ImGuiCol.Border, 0.6f, 0.6f, 0.6f, 1.0f);
+        
+        if (ImGui.button("Singleplayer", buttonWidth, buttonHeight)) {
+            startNewGame();
+        }
+        
+        ImGui.setCursorPos(centerX, buttonY + buttonHeight + spacing);
+        if (ImGui.button("Multiplayer", buttonWidth, buttonHeight)) {
+            // TODO: multiplayer
+            startNewGame();
+        }
+        
+        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
+        if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
+            System.exit(0);
+        }
+        
+        ImGui.popStyleColor(5);
+        ImGui.popStyleVar(2);
+        
+        String version = "Infdev 0.1.0-alpha.1";
+        float versionWidth = ImGui.calcTextSize(version).x;
+        ImGui.setCursorPos(windowWidth - versionWidth - 10, windowHeight - 30);
+        ImGui.pushStyleColor(ImGuiCol.Text, 0.5f, 0.5f, 0.5f, 1.0f);
+        ImGui.text(version);
+        ImGui.popStyleColor();
+        
+        ImGui.end();
+        ImGui.popStyleVar(3);
+    }
+    
+    private void startNewGame() {
+        currentState = GameState.PLAYING;
+        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
     @Override
@@ -91,6 +212,10 @@ public class Main implements IAppLogic, IGuiInstance {
 
     @Override
     public void input(Window window, Scene scene, long diffTimeMillis, boolean inputConsumed) {
+        if (currentState != GameState.PLAYING) {
+            return;
+        }
+        
         float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
         Vector3f oldPos = new Vector3f(camera.getPosition());
@@ -117,12 +242,6 @@ public class Main implements IAppLogic, IGuiInstance {
                 camera.getPosition().set(oldPos);
             }
         }
-        // if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-        //     camera.moveDownFlat(move);
-        //     if (Physics.checkCollision(camera.getPosition())) {
-        //         camera.getPosition().set(oldPos);
-        //     }
-        // }
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
             scene.getPhysics().resetVelocity();
             scene.getPhysics().changeVelocity(0.15f);
@@ -200,16 +319,17 @@ public class Main implements IAppLogic, IGuiInstance {
 
     @Override
     public void update(Window window, Scene scene, long diffTimeMillis) {
-        updateChunks(scene);
-        Chunk c;
-        while ((c = readyChunks.poll()) != null) {
-            String key = c.getChunkX() + "_" + c.getChunkZ();
-            loadedChunks.put(key, c);
-            c.buildMesh();
-            c.uploadToScene(scene);
+        if (currentState == GameState.PLAYING) {
+            updateChunks(scene);
+            Chunk c;
+            while ((c = readyChunks.poll()) != null) {
+                String key = c.getChunkX() + "_" + c.getChunkZ();
+                loadedChunks.put(key, c);
+                c.buildMesh();
+                c.uploadToScene(scene);
+            }
+            updatePhysics(scene);
         }
-        updatePhysics(scene);
-        //logInfo(scene);
     }
 
     private void logInfo(Scene scene) {

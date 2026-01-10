@@ -50,14 +50,19 @@ public class Chunk {
 
                 int seaLevel = 32;
                 for (int y = 0; y < CHUNK_HEIGHT; y++) {
-                    if (y < height - 4) {
-                        blocks[x][y][z] = Blocks.STONE.getId();
-                    } else if (y < height - 1) {
-                        blocks[x][y][z] = Blocks.DIRT.getId();
-                    } else if (y == height) {
-                        if (height < seaLevel) blocks[x][y][z] = Blocks.SAND.getId();
-                        else blocks[x][y][z] = Blocks.GRASS.getId();
-                    } else if (y <= seaLevel && y > height) {
+                    if (y <= height - 1) {
+                        if (y < height - 4) {
+                            blocks[x][y][z] = Blocks.STONE.getId();
+                        } else if (y < height - 1) {
+                            blocks[x][y][z] = Blocks.DIRT.getId();
+                        } else {
+                            if (height <= seaLevel) {
+                                blocks[x][y][z] = Blocks.SAND.getId();
+                            } else {
+                                blocks[x][y][z] = Blocks.GRASS.getId();
+                            }
+                        }
+                    } else if (y <= seaLevel) {
                         blocks[x][y][z] = Blocks.WATER.getId();
                     } else {
                         blocks[x][y][z] = Blocks.AIR.getId();
@@ -88,28 +93,28 @@ public class Chunk {
                     int worldX = chunkX * CHUNK_SIZE + x;
                     int worldZ = chunkZ * CHUNK_SIZE + z;
 
-                    if (isAir(x - 1, y, z)) {
-                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_side", k -> new MeshData());
+                    if (isTransparent(x - 1, y, z)) {
+                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_left", k -> new MeshData());
                         addLeftFace(meshData, worldX, y, worldZ);
                     }
-                    if (isAir(x + 1, y, z)) {
-                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_side", k -> new MeshData());
+                    if (isTransparent(x + 1, y, z)) {
+                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_right", k -> new MeshData());
                         addRightFace(meshData, worldX, y, worldZ);
                     }
-                    if (isAir(x, y - 1, z)) {
+                    if (isTransparent(x, y - 1, z)) {
                         MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_bottom", k -> new MeshData());
                         addBottomFace(meshData, worldX, y, worldZ);
                     }
-                    if (isAir(x, y + 1, z)) {
+                    if (isTransparent(x, y + 1, z)) {
                         MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_top", k -> new MeshData());
                         addTopFace(meshData, worldX, y, worldZ);
                     }
-                    if (isAir(x, y, z - 1)) {
-                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_side", k -> new MeshData());
+                    if (isTransparent(x, y, z - 1)) {
+                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_back", k -> new MeshData());
                         addBackFace(meshData, worldX, y, worldZ);
                     }
-                    if (isAir(x, y, z + 1)) {
-                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_side", k -> new MeshData());
+                    if (isTransparent(x, y, z + 1)) {
+                        MeshData meshData = meshDataMap.computeIfAbsent(blockId + "_front", k -> new MeshData());
                         addFrontFace(meshData, worldX, y, worldZ);
                     }
                 }
@@ -289,7 +294,6 @@ public class Chunk {
         m.indices.add(m.vertexCount); m.indices.add(m.vertexCount + 2); m.indices.add(m.vertexCount + 3);
         m.vertexCount += 4;
     }
-
     private double octaveNoise(double x, double z, int octaves, double persistence, double scale) {
         double total = 0;
         double amplitude = 1;
@@ -305,10 +309,12 @@ public class Chunk {
         return total / maxValue;
     }
 
-    private boolean isAir(int x, int y, int z) {
-        if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE)
+    private boolean isTransparent(int x, int y, int z) {
+        if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE) {
             return true;
-        return blocks[x][y][z] == Blocks.AIR.getId();
+        }
+        byte blockId = blocks[x][y][z];
+        return blockId == Blocks.AIR.getId();
     }
 
     public boolean hasBlockAt(int x, int y, int z) {

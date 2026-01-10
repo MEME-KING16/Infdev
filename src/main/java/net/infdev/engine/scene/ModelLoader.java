@@ -24,7 +24,7 @@ public class ModelLoader {
     public static Model loadModel(String modelId, String modelPath, TextureCache textureCache) {
         return loadModel(modelId, modelPath, textureCache, aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
                 aiProcess_Triangulate | aiProcess_FixInfacingNormals | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights |
-                aiProcess_PreTransformVertices);
+                aiProcess_PreTransformVertices | aiProcess_FlipWindingOrder);
 
     }
 

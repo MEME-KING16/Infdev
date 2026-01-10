@@ -15,10 +15,10 @@ public class Render {
     public Render(Window window) {
         GL.createCapabilities();
         glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        //glEnable(GL_CULL_FACE);
+        //glCullFace(GL_BACK);
 
-        //glFrontFace(GL_CCW);
+        glFrontFace(GL_CCW);
         glEnable(GL_BLEND);
         guiRender = new GuiRender(window);
         sceneRender = new SceneRender();
@@ -33,6 +33,15 @@ public class Render {
     public void render(Window window, Scene scene) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, window.getWidth(), window.getHeight());
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDepthMask(true);
+        //glEnable(GL_CULL_FACE);
+        //glCullFace(GL_BACK);
+        glDisable(GL_CULL_FACE);
+        glFrontFace(GL_CCW);
+        glDisable(GL_BLEND);
+        glDisable(GL_SCISSOR_TEST);
 
         skyBoxRender.render(scene);
         sceneRender.render(scene);
