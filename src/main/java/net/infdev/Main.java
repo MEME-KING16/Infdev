@@ -64,7 +64,7 @@ public class Main implements IAppLogic, IGuiInstance {
         // skyBox.getSkyBoxEntity().setScale(50);
         // scene.setSkyBox(skyBox);
 
-        scene.getCamera().moveUp(100f);
+        scene.getCamera().moveUp(90f);
     }
 
     @Override
@@ -96,36 +96,36 @@ public class Main implements IAppLogic, IGuiInstance {
         Vector3f oldPos = new Vector3f(camera.getPosition());
 
         if (window.isKeyPressed(GLFW_KEY_W)) {
-            camera.moveForward(move);
+            camera.moveForwardFlat(move);
             if (Physics.checkCollision(camera.getPosition())) {
                 camera.getPosition().set(oldPos);
             }
         } else if (window.isKeyPressed(GLFW_KEY_S)) {
-            camera.moveBackwards(move);
+            camera.moveBackwardsFlat(move);
             if (Physics.checkCollision(camera.getPosition())) {
                 camera.getPosition().set(oldPos);
             }
         }
         if (window.isKeyPressed(GLFW_KEY_A)) {
-            camera.moveLeft(move);
+            camera.moveLeftFlat(move);
             if (Physics.checkCollision(camera.getPosition())) {
                 camera.getPosition().set(oldPos);
             }
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
-            camera.moveRight(move);
+            camera.moveRightFlat(move);
             if (Physics.checkCollision(camera.getPosition())) {
                 camera.getPosition().set(oldPos);
             }
         }
-        if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-            camera.moveDown(move);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
-            }
-        }
+        // if (window.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+        //     camera.moveDownFlat(move);
+        //     if (Physics.checkCollision(camera.getPosition())) {
+        //         camera.getPosition().set(oldPos);
+        //     }
+        // }
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
-            scene.getPhysics().resetVelocity();;
-            scene.getPhysics().changeVelocity(move);
+            scene.getPhysics().resetVelocity();
+            scene.getPhysics().changeVelocity(0.15f);
             if (Physics.checkCollision(camera.getPosition())) {
                 camera.getPosition().set(oldPos);
             }

@@ -1,22 +1,19 @@
 package net.infdev.engine;
 
-
 import org.joml.Vector3f;
-
 import net.infdev.Main;
 import net.infdev.block.Blocks;
 import net.infdev.engine.scene.Camera;
 import net.infdev.util.Chunk;
 
 public class Physics {
-	private float gravity = -0.000005F; // addde 2 0s
+    private float gravity = -0.025F;
     private float velocityY = 0f;
-    // private float cameraSpeed = 0.1f;
-
-
+    private boolean isGrounded = false;
+    
     private static final float PLAYER_WIDTH = 0.05f;
     private static final float PLAYER_HEIGHT = 1.8f;
-
+    
     public static boolean checkCollision(Vector3f pos) {
         int minX = (int)Math.floor(pos.x - PLAYER_WIDTH);
         int maxX = (int)Math.ceil(pos.x + PLAYER_WIDTH);
@@ -36,7 +33,24 @@ public class Physics {
         }
         return false;
     }
-
+    
+    public static boolean checkGroundBelow(Vector3f pos) {
+        int minX = (int)Math.floor(pos.x - PLAYER_WIDTH);
+        int maxX = (int)Math.ceil(pos.x + PLAYER_WIDTH);
+        int checkY = (int)Math.floor(pos.y - PLAYER_HEIGHT - 0.1f);
+        int minZ = (int)Math.floor(pos.z - PLAYER_WIDTH);
+        int maxZ = (int)Math.ceil(pos.z + PLAYER_WIDTH);
+        
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                if (isBlockSolid(x, checkY, z)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
     private static boolean isBlockSolid(int x, int y, int z) {
         int chunkX = (int)Math.floor((double)x / Chunk.CHUNK_SIZE);
         int chunkZ = (int)Math.floor((double)z / Chunk.CHUNK_SIZE);
@@ -57,20 +71,20 @@ public class Physics {
         int blockId = chunk.getBlock(localX, y, localZ);
         return blockId != Blocks.AIR.getId();
     }
-
+    
     public void applyPhysics(float delta, Camera camera) {
-            //System.out.println("delta=" + delta);
-
-        // apply gravity
-        velocityY += gravity * delta;
-
-        // how much to move vertically this frame
-        float dy = velocityY * delta;
-
-        // debug log
-        System.out.println("velocityY=" + velocityY + " dy=" + dy + " pos=" + camera.getPosition());
-
-        // move camera
+        if (isGrounded && !checkGroundBelow(camera.getPosition())) {
+            isGrounded = false;
+        }
+        
+        if (!isGrounded) {
+            velocityY += gravity;
+        }
+        
+        float dy = velocityY;
+        
+        Vector3f oldPos = new Vector3f(camera.getPosition());
+        
         if (dy > 0) {
             camera.moveUp(dy);
         } else if (dy < 0) {
@@ -79,17 +93,22 @@ public class Physics {
 
         // ground collision check
         if (Physics.checkCollision(camera.getPosition())) {
-            camera.moveUp(-dy); // undo movement
+            camera.getPosition().set(oldPos);
             resetVelocity();
+            isGrounded = true;
+        } else {
+            if (dy < 0) {
+                isGrounded = false;
+            }
         }
     }
-
-
+    
     public void resetVelocity() {
         velocityY = 0f;
     }
-
+    
     public void changeVelocity(float amt) {
         velocityY += amt;
+        isGrounded = false;
     }
 }

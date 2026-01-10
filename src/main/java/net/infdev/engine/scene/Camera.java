@@ -74,6 +74,46 @@ public class Camera {
         recalculate();
     }
 
+    public void moveForwardFlat(float inc) {
+        viewMatrix.positiveZ(direction).negate();
+        direction.y = 0; 
+        if (direction.lengthSquared() > 0) { 
+            direction.normalize().mul(inc);
+            position.add(direction);
+            recalculate();
+        }
+    }
+
+    public void moveBackwardsFlat(float inc) {
+        viewMatrix.positiveZ(direction).negate();
+        direction.y = 0;
+        if (direction.lengthSquared() > 0) {
+            direction.normalize().mul(inc);
+            position.sub(direction);
+            recalculate();
+        }
+    }
+
+    public void moveLeftFlat(float inc) {
+        viewMatrix.positiveX(right);
+        right.y = 0;
+        if (right.lengthSquared() > 0) {
+            right.normalize().mul(inc);
+            position.sub(right);
+            recalculate();
+        }
+    }
+
+    public void moveRightFlat(float inc) {
+        viewMatrix.positiveX(right);
+        right.y = 0;
+        if (right.lengthSquared() > 0) {
+            right.normalize().mul(inc);
+            position.add(right);
+            recalculate();
+        }
+    }
+
     private void recalculate() {
         viewMatrix.identity()
                 .rotateX(rotation.x)
