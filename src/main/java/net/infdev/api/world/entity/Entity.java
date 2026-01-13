@@ -1,4 +1,4 @@
-package net.infdev.api;
+package net.infdev.api.world.entity;
 
 public class Entity {
 	private final String name;

@@ -1,4 +1,4 @@
-package net.infdev.api;
+package net.infdev.api.world.block;
 
 import net.infdev.engine.graph.Model;
 

@@ -1,11 +1,11 @@
 package net.infdev.block;
 
 import net.infdev.api.Registries;
+import net.infdev.api.world.block.Block;
 import net.infdev.engine.graph.Material;
 import net.infdev.engine.graph.Model;
 import net.infdev.engine.scene.ModelLoader;
 import net.infdev.engine.scene.Scene;
-import net.infdev.api.Block;
 
 public class Blocks {
 

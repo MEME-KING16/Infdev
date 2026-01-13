@@ -14,6 +14,7 @@ import net.infdev.engine.Window;
 import net.infdev.engine.graph.Render;
 import net.infdev.engine.scene.Scene;
 import net.infdev.engine.scene.lights.SceneLights;
+import net.infdev.item.Items;
 import net.infdev.engine.scene.Camera;
 import net.infdev.engine.IGuiInstance;
 import net.infdev.util.BlockRaycast;
@@ -72,6 +73,7 @@ public class Main implements IAppLogic, IGuiInstance {
         scene.setGuiInstance(this);
 
         Blocks.registerBlocks(scene);
+        Items.registerItems(scene);
         
         // Don't capture cursor in menu
         if (currentState == GameState.PLAYING) {

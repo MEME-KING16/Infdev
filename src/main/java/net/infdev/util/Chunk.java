@@ -1,6 +1,6 @@
 package net.infdev.util;
 
-import net.infdev.api.Block;
+import net.infdev.api.world.block.Block;
 import net.infdev.block.Blocks;
 import net.infdev.engine.graph.*;
 import net.infdev.engine.scene.Entity;
