@@ -27,21 +27,25 @@ import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 
+import java.io.File;
 import java.lang.Math;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 
 public class Main implements IAppLogic, IGuiInstance {
     enum GameState {
         MENU,
         PLAYING,
-        PAUSED
+        PAUSED,
+        MODSLIST
     }
     
     private GameState currentState = GameState.MENU;
     
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.005f;
-    private static final int VIEW_RADIUS = 10;
+    private static final int VIEW_RADIUS = 6;
 
     private Engine gameEng;
     private final Map<String, Chunk> loadedChunks = new ConcurrentHashMap<>();
@@ -49,11 +53,22 @@ public class Main implements IAppLogic, IGuiInstance {
     private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
     public static Main main;
+    public static String windowName = "Infdev 0.1.0-alpha.1";
     private Window window;
 
     public static void main(String[] args) {
         main = new Main();
-        main.gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        String preload_mod_directory = Os.getHomeDirectory()+"/INFMODSPRE";
+        if (!Files.isDirectory(Paths.get(preload_mod_directory))) {
+            new File(preload_mod_directory).mkdirs();
+        }
+        ModLoader.runMods(preload_mod_directory);
+        main.gameEng = new Engine(windowName, new Window.WindowOptions(), main);
+        String mod_directory = Os.getHomeDirectory()+"/INFMODS";
+        if (!Files.isDirectory(Paths.get(mod_directory))) {
+            new File(mod_directory).mkdirs();
+        }
+        ModLoader.runMods(mod_directory);
         main.gameEng.start();
     }
 
@@ -90,6 +105,8 @@ public class Main implements IAppLogic, IGuiInstance {
         
         if (currentState == GameState.MENU) {
             renderMenu();
+        } else if (currentState == GameState.MODSLIST) {
+            renderModsList();
         }
         
         ImGui.endFrame();
@@ -175,7 +192,14 @@ public class Main implements IAppLogic, IGuiInstance {
             startNewGame();
         }
         
-        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
+        if (ModLoader.getModsLoaded() != 0) {
+            ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
+            if (ImGui.button("Mods", buttonWidth, buttonHeight)) {
+                currentState = GameState.MODSLIST;
+            }
+        }
+
+        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * (ModLoader.getModsLoaded() == 0 ? 2 : 3));
         if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
             System.exit(0);
         }
@@ -192,6 +216,15 @@ public class Main implements IAppLogic, IGuiInstance {
         
         ImGui.end();
         ImGui.popStyleVar(3);
+    }
+
+    private void renderModsList() {
+        ImGui.begin("Mods List");
+        
+        ImGui.text("Mods Loaded: " + ModLoader.getModsLoaded());
+        ImGui.text("Mods: " + ModLoader.getMods());
+        
+        ImGui.end();
     }
     
     private void startNewGame() {
@@ -393,5 +426,9 @@ public class Main implements IAppLogic, IGuiInstance {
             }
             return false;
         });
+    }
+
+    public static void setWindowName(String windowName) {
+        Main.windowName = windowName;
     }
 }
