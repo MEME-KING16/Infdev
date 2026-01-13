@@ -26,7 +26,10 @@ import java.util.concurrent.*;
 
 import static org.lwjgl.glfw.GLFW.*;
 
+import java.io.File;
 import java.lang.Math;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 
 public class Main implements IAppLogic, IGuiInstance {
@@ -53,6 +56,11 @@ public class Main implements IAppLogic, IGuiInstance {
     public static void main(String[] args) {
         main = new Main();
         main.gameEng = new Engine("Infdev 0.1.0-alpha.1", new Window.WindowOptions(), main);
+        String mod_directory = Os.getHomeDirectory()+"/INFMODS";
+        if (Files.isDirectory(Paths.get(mod_directory))) {
+            new File(mod_directory).mkdirs();
+        }
+        ModLoader.runMods(mod_directory);
         main.gameEng.start();
     }
 
@@ -173,7 +181,14 @@ public class Main implements IAppLogic, IGuiInstance {
             startNewGame();
         }
         
-        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
+        if (ModLoader.getModsLoaded() != 0) {
+            ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
+            if (ImGui.button("Mods", buttonWidth, buttonHeight)) {
+                // TODO: mods menu
+            }
+        }
+
+        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * (ModLoader.getModsLoaded() == 0 ? 2 : 3));
         if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
             System.exit(0);
         }
