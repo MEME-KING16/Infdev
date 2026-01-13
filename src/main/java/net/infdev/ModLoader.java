@@ -13,6 +13,7 @@ import java.util.jar.Manifest;
 public class ModLoader {
 
     private static int modsLoaded = 0;
+    private static String mods = "";
     
     public static void runMods(String directoryPath) {
         File dir = new File(directoryPath);
@@ -46,11 +47,12 @@ public class ModLoader {
                     Attributes attributes = manifest.getMainAttributes();
                     String mainClassName = attributes.getValue(Attributes.Name.MAIN_CLASS);
                     if (mainClassName != null) {
-                        System.out.println("Found mod " + file.getName() + ": " + mainClassName);
-                        modsLoaded++;
-                        
                         Class<?> mainClass = classLoader.loadClass(mainClassName);
-                        
+                        net.infdev.api.annotation.Mod modAnnotation = mainClass.getAnnotation(net.infdev.api.annotation.Mod.class);
+                        System.out.println("Found mod " + file.getName() + ": " + modAnnotation.name() + " v" + modAnnotation.version());
+                        modsLoaded++;
+                        mods +=  modAnnotation.name() + " v" + modAnnotation.version() + " ("+file.getName() + ")\n";
+                                                
                         Method mainMethod = mainClass.getMethod("main", String[].class);
                         
                         System.out.println("Running main method for " + mainClassName);
@@ -80,5 +82,8 @@ public class ModLoader {
 
     public static int getModsLoaded() {
         return modsLoaded;
+    }
+    public static String getMods() {
+        return mods;
     }
 }
