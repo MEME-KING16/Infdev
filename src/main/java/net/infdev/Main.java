@@ -5,6 +5,8 @@ import imgui.flag.ImGuiCol;
 import imgui.flag.ImGuiCond;
 import imgui.flag.ImGuiStyleVar;
 import imgui.flag.ImGuiWindowFlags;
+import net.infdev.api.world.item.Item;
+import net.infdev.api.world.item.ItemStack;
 import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
@@ -14,6 +16,7 @@ import net.infdev.engine.Window;
 import net.infdev.engine.graph.Render;
 import net.infdev.engine.scene.Scene;
 import net.infdev.engine.scene.lights.SceneLights;
+import net.infdev.inventory.Inventory;
 import net.infdev.item.Items;
 import net.infdev.engine.scene.Camera;
 import net.infdev.engine.IGuiInstance;
@@ -55,6 +58,8 @@ public class Main implements IAppLogic, IGuiInstance {
     public static Main main;
     public static String windowName = "Infdev 0.1.0-alpha.1";
     private Window window;
+    private Inventory inventory = new Inventory();
+    private boolean inventoryOpen = false;
 
     public static void main(String[] args) {
         main = new Main();
@@ -89,9 +94,12 @@ public class Main implements IAppLogic, IGuiInstance {
 
         Blocks.registerBlocks(scene);
         Items.registerItems(scene);
+        inventory.addItem(Items.GRASS_BLOCK, 64);
+        inventory.addItem(Items.DIRT, 64);
+        inventory.addItem(Items.STONE, 64);
         
         // Don't capture cursor in menu
-        if (currentState == GameState.PLAYING) {
+        if (currentState == GameState.PLAYING && !inventoryOpen) {
             glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 
@@ -107,10 +115,154 @@ public class Main implements IAppLogic, IGuiInstance {
             renderMenu();
         } else if (currentState == GameState.MODSLIST) {
             renderModsList();
+        } else if (currentState == GameState.PLAYING) {
+            if (inventoryOpen) {
+                renderInventory();
+            } else {
+                renderHotbar();
+            }
         }
         
         ImGui.endFrame();
         ImGui.render();
+    }
+
+    
+    private void renderHotbar() {
+        ImGuiIO io = ImGui.getIO();
+        float windowWidth = io.getDisplaySizeX();
+        float windowHeight = io.getDisplaySizeY();
+        
+        float slotSize = 50;
+        float spacing = 2;
+        float totalWidth = (slotSize + spacing) * 9 - spacing;
+        float startX = (windowWidth - totalWidth) / 2;
+        float startY = windowHeight - slotSize - 20;
+        
+        ImDrawList drawList = ImGui.getBackgroundDrawList();
+        
+        for (int i = 0; i < 9; i++) {
+            float x = startX + i * (slotSize + spacing);
+            
+            int bgColor = (i == inventory.getSelectedSlot()) ? 
+                ImGui.getColorU32(1.0f, 1.0f, 1.0f, 0.5f) : 
+                ImGui.getColorU32(0.0f, 0.0f, 0.0f, 0.5f);
+            drawList.addRectFilled(x, startY, x + slotSize, startY + slotSize, bgColor);
+            
+            int borderColor = (i == inventory.getSelectedSlot()) ? 
+                ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f) : 
+                ImGui.getColorU32(0.5f, 0.5f, 0.5f, 1.0f);
+            drawList.addRect(x, startY, x + slotSize, startY + slotSize, borderColor, 0, 0, 2.0f);
+            
+            ItemStack item = inventory.getHotbarSlot(i);
+            if (!item.isEmpty()) {
+                String itemName = item.getItem().getName();
+                
+                ImGui.setCursorScreenPos(x + 5, startY + 5);
+                ImGui.setWindowFontScale(0.6f);
+                
+                ImGui.setCursorScreenPos(x + 6, startY + 6);
+                ImGui.pushStyleColor(ImGuiCol.Text, 0.0f, 0.0f, 0.0f, 1.0f);
+                ImGui.text(itemName);
+                ImGui.popStyleColor();
+                
+                ImGui.setCursorScreenPos(x + 5, startY + 5);
+                ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+                ImGui.text(itemName);
+                ImGui.popStyleColor();
+                
+                ImGui.setWindowFontScale(1.0f);
+                
+                String text = String.valueOf(item.getCount());
+                float textX = x + slotSize - ImGui.calcTextSize(text).x - 5;
+                float textY = startY + slotSize - ImGui.getFont().getFontSize() - 5;
+                
+                drawList.addText(textX + 1, textY + 1, ImGui.getColorU32(0.0f, 0.0f, 0.0f, 1.0f), text);
+                drawList.addText(textX, textY, ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f), text);
+            }
+        }
+    }
+
+
+    private void renderInventory() {
+        ImGuiIO io = ImGui.getIO();
+        float windowWidth = io.getDisplaySizeX();
+        float windowHeight = io.getDisplaySizeY();
+        
+        float slotSize = 50;
+        float spacing = 2;
+        float invWidth = (slotSize + spacing) * 9 - spacing;
+        float invHeight = (slotSize + spacing) * 4 - spacing + 20;
+        
+        float startX = (windowWidth - invWidth) / 2;
+        float startY = (windowHeight - invHeight) / 2;
+        
+        ImGui.setNextWindowPos(0, 0);
+        ImGui.setNextWindowSize(windowWidth, windowHeight);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0, 0);
+        ImGui.pushStyleColor(ImGuiCol.WindowBg, 0.0f, 0.0f, 0.0f, 0.7f);
+        
+        int flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | 
+                    ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoScrollbar;
+        
+        ImGui.begin("InventoryBG", flags);
+        ImDrawList drawList = ImGui.getWindowDrawList();
+        
+        String title = "Inventory";
+        float titleX = startX;
+        float titleY = startY - 30;
+        drawList.addText(titleX, titleY, ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f), title);
+        
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                int index = row * 9 + col;
+                float x = startX + col * (slotSize + spacing);
+                float y = startY + row * (slotSize + spacing);
+                
+                drawList.addRectFilled(x, y, x + slotSize, y + slotSize, 
+                                    ImGui.getColorU32(0.2f, 0.2f, 0.2f, 0.9f));
+                drawList.addRect(x, y, x + slotSize, y + slotSize, 
+                            ImGui.getColorU32(0.5f, 0.5f, 0.5f, 1.0f), 0, 0, 1.0f);
+                
+                ItemStack item = inventory.getInventorySlot(index);
+                if (!item.isEmpty()) {
+                    String text = String.valueOf(item.getCount());
+                    float textX = x + slotSize - ImGui.calcTextSize(text).x - 5;
+                    float textY = y + slotSize - ImGui.getFont().getFontSize() - 5;
+                    drawList.addText(textX + 1, textY + 1, ImGui.getColorU32(0.0f, 0.0f, 0.0f, 1.0f), text);
+                    drawList.addText(textX, textY, ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f), text);
+                }
+            }
+        }
+        
+        float hotbarY = startY + 3 * (slotSize + spacing) + 10;
+        
+        for (int i = 0; i < 9; i++) {
+            float x = startX + i * (slotSize + spacing);
+            
+            int bgColor = (i == inventory.getSelectedSlot()) ? 
+                ImGui.getColorU32(0.4f, 0.4f, 0.4f, 0.9f) : 
+                ImGui.getColorU32(0.2f, 0.2f, 0.2f, 0.9f);
+            drawList.addRectFilled(x, hotbarY, x + slotSize, hotbarY + slotSize, bgColor);
+            
+            int borderColor = (i == inventory.getSelectedSlot()) ? 
+                ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f) : 
+                ImGui.getColorU32(0.5f, 0.5f, 0.5f, 1.0f);
+            drawList.addRect(x, hotbarY, x + slotSize, hotbarY + slotSize, borderColor, 0, 0, 2.0f);
+            
+            ItemStack item = inventory.getHotbarSlot(i);
+            if (!item.isEmpty()) {
+                String text = String.valueOf(item.getCount());
+                float textX = x + slotSize - ImGui.calcTextSize(text).x - 5;
+                float textY = hotbarY + slotSize - ImGui.getFont().getFontSize() - 5;
+                drawList.addText(textX + 1, textY + 1, ImGui.getColorU32(0.0f, 0.0f, 0.0f, 1.0f), text);
+                drawList.addText(textX, textY, ImGui.getColorU32(1.0f, 1.0f, 1.0f, 1.0f), text);
+            }
+        }
+        
+        ImGui.end();
+        ImGui.popStyleColor();
+        ImGui.popStyleVar();
     }
     
     private void renderMenu() {
@@ -288,32 +440,33 @@ public class Main implements IAppLogic, IGuiInstance {
         oldPos.set(camera.getPosition());
 
         MouseInput mouseInput = window.getMouseInput();
+
         if (mouseInput.isRightButtonPressed() && !inputConsumed) {
-            Vector3f camPos = camera.getPosition();
-            Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
-            
-            BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
-                camPos, camDir, loadedChunks, 5.0f
-            );
-            
-            if (result.hit) {
+            ItemStack selected = inventory.getSelectedItem();
+            if (!selected.isEmpty()) {
+                Vector3f camPos = camera.getPosition();
+                Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
                 
-                int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
-                int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
-                String key = chunkX + "_" + chunkZ;
+                BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
                 
-                Chunk c = loadedChunks.get(key);
-                if (c != null) {
-                    int localX = result.previousBlockPos.x - (chunkX * Chunk.CHUNK_SIZE);
-                    int localZ = result.previousBlockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+                if (result.hit) {
+                    int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
+                    int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
+                    String key = chunkX + "_" + chunkZ;
                     
-                    c.setBlock(localX, result.previousBlockPos.y, localZ, Blocks.STONE.getId());
-                    c.removeFromScene(scene);
-                    c.rebuildMesh();
-                    c.uploadToScene(scene);
-                    
-                } else {
-                    System.out.println("CHUNK NOT FOUND: " + key);
+                    Chunk c = loadedChunks.get(key);
+                    if (c != null) {
+                        int localX = result.previousBlockPos.x - (chunkX * Chunk.CHUNK_SIZE);
+                        int localZ = result.previousBlockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
+                        
+                        byte blockId = getBlockIdFromItem(selected.getItem());
+                        
+                        c.setBlock(localX, result.previousBlockPos.y, localZ, blockId);
+                        inventory.removeSelectedItem();
+                        c.removeFromScene(scene);
+                        c.rebuildMesh();
+                        c.uploadToScene(scene);
+                    }
                 }
             }
         }
@@ -322,12 +475,9 @@ public class Main implements IAppLogic, IGuiInstance {
             Vector3f camPos = camera.getPosition();
             Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
             
-            BlockRaycast.BlockHitResult result = BlockRaycast.raycast(
-                camPos, camDir, loadedChunks, 5.0f
-            );
+            BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
             
             if (result.hit) {
-                
                 int chunkX = (int) Math.floor((double) result.blockPos.x / Chunk.CHUNK_SIZE);
                 int chunkZ = (int) Math.floor((double) result.blockPos.z / Chunk.CHUNK_SIZE);
                 String key = chunkX + "_" + chunkZ;
@@ -337,14 +487,35 @@ public class Main implements IAppLogic, IGuiInstance {
                     int localX = result.blockPos.x - (chunkX * Chunk.CHUNK_SIZE);
                     int localZ = result.blockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
                     
+                    byte brokenBlock = c.getBlock(localX, result.blockPos.y, localZ);
+                    if (brokenBlock != Blocks.AIR.getId()) {
+                        Item item = getItemFromBlock(brokenBlock);
+                        inventory.addItem(item, 1);
+                    }
+                    
                     c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
                     c.removeFromScene(scene);
                     c.rebuildMesh();
                     c.uploadToScene(scene);
-                    
-                } else {
-                    System.out.println("CHUNK NOT FOUND: " + key);
                 }
+            }
+        }
+
+        if (window.isKeyPressed(GLFW_KEY_1)) inventory.setSelectedSlot(0);
+        if (window.isKeyPressed(GLFW_KEY_2)) inventory.setSelectedSlot(1);
+        if (window.isKeyPressed(GLFW_KEY_3)) inventory.setSelectedSlot(2);
+        if (window.isKeyPressed(GLFW_KEY_4)) inventory.setSelectedSlot(3);
+        if (window.isKeyPressed(GLFW_KEY_5)) inventory.setSelectedSlot(4);
+        if (window.isKeyPressed(GLFW_KEY_6)) inventory.setSelectedSlot(5);
+        if (window.isKeyPressed(GLFW_KEY_7)) inventory.setSelectedSlot(6);
+        if (window.isKeyPressed(GLFW_KEY_8)) inventory.setSelectedSlot(7);
+        if (window.isKeyPressed(GLFW_KEY_9)) inventory.setSelectedSlot(8);
+        if (window.isKeyPressed(GLFW_KEY_E)) {
+            inventoryOpen = !inventoryOpen;
+            if (inventoryOpen) {
+                glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            } else {
+                glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             }
         }
         
@@ -430,5 +601,21 @@ public class Main implements IAppLogic, IGuiInstance {
 
     public static void setWindowName(String windowName) {
         Main.windowName = windowName;
+    }
+
+    private byte getBlockIdFromItem(Item item) {
+        if (item.equals(Items.GRASS_BLOCK)) return Blocks.GRASS.getId();
+        if (item.equals(Items.DIRT)) return Blocks.DIRT.getId();
+        if (item.equals(Items.STONE)) return Blocks.STONE.getId();
+        if (item.equals(Items.SAND)) return Blocks.SAND.getId();
+        return Blocks.AIR.getId();
+    }
+
+    private Item getItemFromBlock(byte blockId) {
+        if (blockId == Blocks.GRASS.getId()) return Items.GRASS_BLOCK;
+        if (blockId == Blocks.DIRT.getId()) return Items.DIRT;
+        if (blockId == Blocks.STONE.getId()) return Items.STONE;
+        if (blockId == Blocks.SAND.getId()) return Items.SAND;
+        return Items.AIR;
     }
 }

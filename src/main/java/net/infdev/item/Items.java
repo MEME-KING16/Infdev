@@ -13,7 +13,7 @@ public class Items {
 	public static final Item AIR = new Item("Air");
 	public static final Item STONE = new Item("Stone");
 	public static final Item DIRT = new Item("Dirt");
-	public static final Item GRASS = new Item("Grass");
+	public static final Item GRASS_BLOCK = new Item("Grass Block");
 	public static final Item WATER = new Item("Water");
 	public static final Item SAND = new Item("Sand");
 
@@ -45,7 +45,7 @@ public class Items {
 		Registries.ITEM.register("infdev", "air", AIR);
 		Registries.ITEM.register("infdev", "stone", STONE);
 		Registries.ITEM.register("infdev", "dirt", DIRT);
-		Registries.ITEM.register("infdev", "grass_block", GRASS);
+		Registries.ITEM.register("infdev", "grass_block", GRASS_BLOCK);
 		Registries.ITEM.register("infdev", "water", WATER);
 		Registries.ITEM.register("infdev", "sand", SAND);
 	}
