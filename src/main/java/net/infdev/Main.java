@@ -60,6 +60,9 @@ public class Main implements IAppLogic, IGuiInstance {
     private Window window;
     private Inventory inventory = new Inventory();
     private boolean inventoryOpen = false;
+    private long lastInvStatusChangeTime = 0;
+    private long lastBlockBreakTime = 0;
+    private long lastBlockPlaceTime = 0;
 
     public static void main(String[] args) {
         main = new Main();
@@ -441,7 +444,8 @@ public class Main implements IAppLogic, IGuiInstance {
 
         MouseInput mouseInput = window.getMouseInput();
 
-        if (mouseInput.isRightButtonPressed() && !inputConsumed) {
+        if (mouseInput.isRightButtonPressed() && !inputConsumed && (System.currentTimeMillis() - lastBlockPlaceTime) > 200) {
+            lastBlockPlaceTime = System.currentTimeMillis();
             ItemStack selected = inventory.getSelectedItem();
             if (!selected.isEmpty()) {
                 Vector3f camPos = camera.getPosition();
@@ -471,7 +475,8 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
 
-        if (mouseInput.isLeftButtonPressed() && !inputConsumed) {
+        if (mouseInput.isLeftButtonPressed() && !inputConsumed && (System.currentTimeMillis() - lastBlockBreakTime) > 200) {
+            lastBlockBreakTime = System.currentTimeMillis();
             Vector3f camPos = camera.getPosition();
             Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
             
@@ -510,7 +515,8 @@ public class Main implements IAppLogic, IGuiInstance {
         if (window.isKeyPressed(GLFW_KEY_7)) inventory.setSelectedSlot(6);
         if (window.isKeyPressed(GLFW_KEY_8)) inventory.setSelectedSlot(7);
         if (window.isKeyPressed(GLFW_KEY_9)) inventory.setSelectedSlot(8);
-        if (window.isKeyPressed(GLFW_KEY_E)) {
+        if (window.isKeyPressed(GLFW_KEY_E) && (System.currentTimeMillis() - lastInvStatusChangeTime) > 300) {
+            lastInvStatusChangeTime = System.currentTimeMillis();
             inventoryOpen = !inventoryOpen;
             if (inventoryOpen) {
                 glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
