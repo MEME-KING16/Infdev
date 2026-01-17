@@ -452,8 +452,8 @@ public class Main implements IAppLogic, IGuiInstance {
                 Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
                 
                 BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
-                
-                if (result.hit) {
+
+                if (result.hit && !result.previousBlockPos.equals(new Vector3i((int) camPos.x,(int) camPos.y,(int) camPos.z))) {
                     int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
                     int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
                     String key = chunkX + "_" + chunkZ;
@@ -482,7 +482,7 @@ public class Main implements IAppLogic, IGuiInstance {
             
             BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
             
-            if (result.hit) {
+                if (result.hit) {
                 int chunkX = (int) Math.floor((double) result.blockPos.x / Chunk.CHUNK_SIZE);
                 int chunkZ = (int) Math.floor((double) result.blockPos.z / Chunk.CHUNK_SIZE);
                 String key = chunkX + "_" + chunkZ;
