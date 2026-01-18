@@ -112,4 +112,72 @@ public class Inventory {
         }
         return false;
     }
+
+    public boolean isValidHotbarSlot(int slot) {
+        return slot >= 0 && slot < HOTBAR_SIZE;
+    }
+
+    public boolean isValidInventorySlot(int slot) {
+        return slot >= 0 && slot < INVENTORY_SIZE;
+    }
+
+    public void swapSlots(int fromSlot, int toSlot, boolean isFromHotbar, boolean isToHotbar) {
+        ItemStack fromStack = isFromHotbar ? getHotbarSlot(fromSlot) : getInventorySlot(fromSlot);
+        ItemStack toStack = isToHotbar ? getHotbarSlot(toSlot) : getInventorySlot(toSlot);
+
+        if (fromStack == null || toStack == null) return;
+
+        ItemStack temp = new ItemStack(fromStack.getItem(), fromStack.getCount());
+
+        if (isFromHotbar) {
+            setHotbarSlot(fromSlot, toStack);
+        } else {
+            setInventorySlot(fromSlot, toStack);
+        }
+
+        if (isToHotbar) {
+            setHotbarSlot(toSlot, temp);
+        } else {
+            setInventorySlot(toSlot, temp);
+        }
+    }
+
+    public boolean mergeStacks(int fromSlot, int toSlot, boolean isFromHotbar, boolean isToHotbar) {
+        ItemStack fromStack = isFromHotbar ? getHotbarSlot(fromSlot) : getInventorySlot(fromSlot);
+        ItemStack toStack = isToHotbar ? getHotbarSlot(toSlot) : getInventorySlot(toSlot);
+
+        if (fromStack == null || toStack == null) return false;
+        if (fromStack.isEmpty() || toStack.isEmpty()) return false;
+        if (!fromStack.getItem().equals(toStack.getItem())) return false;
+        if (toStack.getCount() >= 64) return false;
+
+        int space = 64 - toStack.getCount();
+        int toTransfer = Math.min(space, fromStack.getCount());
+
+        toStack.setCount(toStack.getCount() + toTransfer);
+        fromStack.setCount(fromStack.getCount() - toTransfer);
+
+        if (fromStack.getCount() <= 0) {
+            if (isFromHotbar) {
+                setHotbarSlot(fromSlot, new ItemStack());
+            } else {
+                setInventorySlot(fromSlot, new ItemStack());
+            }
+        }
+
+        return true;
+    }
+
+    public ItemStack splitStack(int slot, boolean isHotbar) {
+        ItemStack stack = isHotbar ? getHotbarSlot(slot) : getInventorySlot(slot);
+
+        if (stack == null || stack.isEmpty() || stack.getCount() <= 1) return null;
+
+        int halfCount = stack.getCount() / 2;
+        int remainingCount = stack.getCount() - halfCount;
+
+        stack.setCount(remainingCount);
+
+        return new ItemStack(stack.getItem(), halfCount);
+    }
 }

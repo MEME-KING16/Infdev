@@ -28,7 +28,21 @@ public class Texture {
 
     public Texture(int width, int height, ByteBuffer buf) {
         this.texturePath = "";
-        generateTexture(width, height, buf);
+        generateTextureSmooth(width, height, buf);
+    }
+
+    private void generateTextureSmooth(int width, int height, ByteBuffer buf) {
+        textureId = glGenTextures();
+
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                GL_RGBA, GL_UNSIGNED_BYTE, buf);
+        // Don't generate mipmaps for rendered textures
     }
 
     public Texture(String texturePath) {
@@ -88,5 +102,9 @@ public class Texture {
 
     public String getTexturePath() {
         return texturePath;
+    }
+
+    public int getTextureId() {
+        return textureId;
     }
 }

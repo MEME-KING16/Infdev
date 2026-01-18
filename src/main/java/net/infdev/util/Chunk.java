@@ -8,6 +8,7 @@ import net.infdev.engine.scene.Scene;
 import org.joml.SimplexNoise;
 
 import java.util.*;
+import java.util.Random;
 
 public class Chunk {
     public static final int CHUNK_SIZE = 16;
@@ -70,6 +71,83 @@ public class Chunk {
                 }
             }
         }
+
+        generateTrees();
+    }
+
+    private void generateTrees() {
+        int seaLevel = 32;
+        Random rand = new Random((long) chunkX * 341873128712L + (long) chunkZ * 132897987541L);
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            int x = rand.nextInt(CHUNK_SIZE);
+            int z = rand.nextInt(CHUNK_SIZE);
+
+            int worldX = chunkX * CHUNK_SIZE + x;
+            int worldZ = chunkZ * CHUNK_SIZE + z;
+
+            double treeNoise = octaveNoise(worldX, worldZ, 2, 0.5, 0.05);
+            if (treeNoise < 0.3) {
+                continue;
+            }
+
+            int y = findSurfaceHeight(x, z);
+
+            if (y > seaLevel && y < CHUNK_HEIGHT - 10 && blocks[x][y][z] == Blocks.GRASS.getId()) {
+                placeTree(x, y + 1, z, rand);
+            }
+        }
+    }
+
+    private int findSurfaceHeight(int x, int z) {
+        for (int y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+            if (blocks[x][y][z] != Blocks.AIR.getId() && blocks[x][y][z] != Blocks.WATER.getId()) {
+                return y;
+            }
+        }
+        return 0;
+    }
+
+    private void placeTree(int x, int y, int z, Random rand) {
+        int trunkHeight = 4 + rand.nextInt(3);
+
+        for (int i = 0; i < trunkHeight; i++) {
+            setBlockSafe(x, y + i, z, Blocks.OAK_LOG.getId());
+        }
+
+        int leavesY = y + trunkHeight - 2;
+
+        for (int dy = 0; dy < 4; dy++) {
+            int currentY = leavesY + dy;
+            int radius = (dy == 0 || dy == 3) ? 1 : 2;
+
+            if (dy == 3) {
+                setBlockSafe(x, currentY, z, Blocks.OAK_LEAVES.getId());
+            } else {
+                for (int dx = -radius; dx <= radius; dx++) {
+                    for (int dz = -radius; dz <= radius; dz++) {
+                        if (dx == 0 && dz == 0 && dy < 2) {
+                            continue;
+                        }
+
+                        int dist = Math.abs(dx) + Math.abs(dz);
+                        if (dist <= radius + 1) {
+                            if (rand.nextFloat() < 0.85f || dist <= radius) {
+                                setBlockSafe(x + dx, currentY, z + dz, Blocks.OAK_LEAVES.getId());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void setBlockSafe(int x, int y, int z, byte blockId) {
+        if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_HEIGHT && z >= 0 && z < CHUNK_SIZE) {
+            if (blocks[x][y][z] == Blocks.AIR.getId() || blocks[x][y][z] == Blocks.OAK_LEAVES.getId()) {
+                blocks[x][y][z] = blockId;
+            }
+        }
     }
 
     public void rebuildMesh() {
@@ -79,6 +157,37 @@ public class Chunk {
         models.clear();
         entities.clear();
         buildMesh();
+    }
+
+    public void rebuildMesh(Scene scene) {
+        // Save old entities
+        List<Entity> oldEntities = new ArrayList<>(entities);
+
+        // Clean up old models and entities lists
+        for (Model model : models) {
+            model.cleanup();
+        }
+        models.clear();
+        entities.clear();
+
+        // Build new mesh
+        buildMesh();
+
+        // If in scene, atomically swap entities to prevent flickering
+        if (inScene) {
+            // Remove old entities
+            for (Entity entity : oldEntities) {
+                scene.removeEntity(entity);
+            }
+            // Add new entities
+            for (Entity entity : entities) {
+                scene.addEntity(entity);
+            }
+            // Add new models
+            for (Model model : models) {
+                scene.addModel(model);
+            }
+        }
     }
 
     public void buildMesh() {
@@ -160,6 +269,8 @@ public class Chunk {
         if (id == Blocks.STONE.getId()) return Blocks.STONE;
         if (id == Blocks.WATER.getId()) return Blocks.WATER;
         if (id == Blocks.SAND.getId()) return Blocks.SAND;
+        if (id == Blocks.OAK_LOG.getId()) return Blocks.OAK_LOG;
+        if (id == Blocks.OAK_LEAVES.getId()) return Blocks.OAK_LEAVES;
         return null;
     }
 
