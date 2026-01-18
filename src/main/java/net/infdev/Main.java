@@ -23,6 +23,7 @@ import net.infdev.engine.scene.Camera;
 import net.infdev.engine.IGuiInstance;
 import net.infdev.util.BlockRaycast;
 import net.infdev.util.Chunk;
+import net.infdev.api.world.entity.MobManager;
 import net.infdev.crafting.RecipeManager;
 
 import org.joml.*;
@@ -74,6 +75,7 @@ public class Main implements IAppLogic, IGuiInstance {
     private Scene scene;
     private boolean hoveredIsHotbar = false;
     // private ItemModelRenderer itemModelRenderer; // DISABLED
+    private MobManager mobManager;
 
     // Crafting variables
     private final ItemStack[][] craftingGrid2x2 = new ItemStack[2][2];
@@ -103,6 +105,9 @@ public class Main implements IAppLogic, IGuiInstance {
     @Override
     public void cleanup() {
         chunkExecutor.shutdownNow();
+        if (mobManager != null) {
+            mobManager.cleanup();
+        }
         // if (itemModelRenderer != null) {
         //     itemModelRenderer.cleanup();
         // }
@@ -122,6 +127,10 @@ public class Main implements IAppLogic, IGuiInstance {
         Blocks.registerBlocks(scene);
         Items.registerItems(scene);
         RecipeManager.initializeRecipes();
+
+        // Initialize mob system
+        mobManager = new MobManager();
+        mobManager.setScene(scene);
 
         // Initialize ItemModelRenderer and render all item models
         // DISABLED: 3D model rendering has issues, using 2D textures instead
@@ -1459,6 +1468,11 @@ public class Main implements IAppLogic, IGuiInstance {
                 c.uploadToScene(scene);
             }
             updatePhysics(scene);
+
+            // Update mobs
+            if (mobManager != null) {
+                mobManager.update(scene.getCamera(), loadedChunks, (long) gameEng.getDeltaTime());
+            }
         }
     }
 
