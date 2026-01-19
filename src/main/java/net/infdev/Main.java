@@ -1612,7 +1612,8 @@ public class Main implements IAppLogic, IGuiInstance {
 
                     c.setBlock(localX, result.previousBlockPos.y, localZ, blockId);
                     inventory.removeSelectedItem();
-                    c.rebuildMesh(scene);
+                    c.rebuildMesh(scene, loadedChunks);
+                    rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
                 }
             }
         }
@@ -1719,7 +1720,8 @@ public class Main implements IAppLogic, IGuiInstance {
                                 // else: block requires tool but player doesn't have one, no drops
 
                                 c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
-                                c.rebuildMesh(scene);
+                                c.rebuildMesh(scene, loadedChunks);
+                                rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
 
                                 // Reset breaking progress
                                 targetBlock = null;
@@ -1763,8 +1765,9 @@ public class Main implements IAppLogic, IGuiInstance {
             while ((c = readyChunks.poll()) != null) {
                 String key = c.getChunkX() + "_" + c.getChunkZ();
                 loadedChunks.put(key, c);
-                c.buildMesh();
+                c.buildMesh(loadedChunks);
                 c.uploadToScene(scene);
+                rebuildNeighborChunks(scene, c.getChunkX(), c.getChunkZ());
             }
             updatePhysics(scene);
 
@@ -1881,18 +1884,26 @@ public class Main implements IAppLogic, IGuiInstance {
     }
 
     private void unloadFar(Scene scene, int px, int pz) {
-        loadedChunks.entrySet().removeIf(e -> {
+        List<int[]> toRemove = new ArrayList<>();
+        for (Map.Entry<String, Chunk> e : loadedChunks.entrySet()) {
             String[] s = e.getKey().split("_");
             int cx = Integer.parseInt(s[0]);
             int cz = Integer.parseInt(s[1]);
             int dx = Math.abs(cx - px);
             int dz = Math.abs(cz - pz);
             if (dx > VIEW_RADIUS + 1 || dz > VIEW_RADIUS + 1) {
-                e.getValue().removeFromScene(scene);
-                return true;
+                toRemove.add(new int[] { cx, cz });
             }
-            return false;
-        });
+        }
+
+        for (int[] coords : toRemove) {
+            String key = coords[0] + "_" + coords[1];
+            Chunk removed = loadedChunks.remove(key);
+            if (removed != null) {
+                removed.removeFromScene(scene);
+                rebuildNeighborChunks(scene, coords[0], coords[1]);
+            }
+        }
     }
 
     public static void setWindowName(String windowName) {
@@ -1932,5 +1943,33 @@ public class Main implements IAppLogic, IGuiInstance {
         if (blockId == Blocks.OAK_LEAVES.getId()) return Items.OAK_LEAVES;
         if (blockId == Blocks.CRAFTING_TABLE.getId()) return Items.CRAFTING_TABLE;
         return Items.AIR;
+    }
+
+    private void rebuildNeighborChunks(Scene scene, int chunkX, int chunkZ) {
+        rebuildChunkIfLoaded(scene, chunkX - 1, chunkZ);
+        rebuildChunkIfLoaded(scene, chunkX + 1, chunkZ);
+        rebuildChunkIfLoaded(scene, chunkX, chunkZ - 1);
+        rebuildChunkIfLoaded(scene, chunkX, chunkZ + 1);
+    }
+
+    private void rebuildNeighborChunksIfEdge(Scene scene, int chunkX, int chunkZ, int localX, int localZ) {
+        if (localX == 0) {
+            rebuildChunkIfLoaded(scene, chunkX - 1, chunkZ);
+        } else if (localX == Chunk.CHUNK_SIZE - 1) {
+            rebuildChunkIfLoaded(scene, chunkX + 1, chunkZ);
+        }
+
+        if (localZ == 0) {
+            rebuildChunkIfLoaded(scene, chunkX, chunkZ - 1);
+        } else if (localZ == Chunk.CHUNK_SIZE - 1) {
+            rebuildChunkIfLoaded(scene, chunkX, chunkZ + 1);
+        }
+    }
+
+    private void rebuildChunkIfLoaded(Scene scene, int chunkX, int chunkZ) {
+        Chunk neighbor = loadedChunks.get(chunkX + "_" + chunkZ);
+        if (neighbor != null) {
+            neighbor.rebuildMesh(scene, loadedChunks);
+        }
     }
 }

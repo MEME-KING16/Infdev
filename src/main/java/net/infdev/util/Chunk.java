@@ -20,6 +20,7 @@ public class Chunk {
     private final List<Entity> entities = new ArrayList<>();
     private final List<Model> models = new ArrayList<>();
     private boolean inScene = false;
+    private Map<String, Chunk> neighborLookup = null;
 
     public Chunk(int chunkX, int chunkZ) {
         this.chunkX = chunkX;
@@ -156,10 +157,14 @@ public class Chunk {
         }
         models.clear();
         entities.clear();
-        buildMesh();
+        buildMesh(null);
     }
 
     public void rebuildMesh(Scene scene) {
+        rebuildMesh(scene, null);
+    }
+
+    public void rebuildMesh(Scene scene, Map<String, Chunk> loadedChunks) {
         // Save old entities
         List<Entity> oldEntities = new ArrayList<>(entities);
 
@@ -171,7 +176,7 @@ public class Chunk {
         entities.clear();
 
         // Build new mesh
-        buildMesh();
+        buildMesh(loadedChunks);
 
         // If in scene, atomically swap entities to prevent flickering
         if (inScene) {
@@ -191,6 +196,19 @@ public class Chunk {
     }
 
     public void buildMesh() {
+        buildMesh(null);
+    }
+
+    public void buildMesh(Map<String, Chunk> loadedChunks) {
+        neighborLookup = loadedChunks;
+        try {
+            buildMeshInternal();
+        } finally {
+            neighborLookup = null;
+        }
+    }
+
+    private void buildMeshInternal() {
         Map<String, MeshData> meshDataMap = new HashMap<>();
 
         for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -421,10 +439,43 @@ public class Chunk {
     }
 
     private boolean isTransparent(int x, int y, int z) {
-        if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE) {
+        if (y < 0 || y >= CHUNK_HEIGHT) {
             return true;
         }
-        byte blockId = blocks[x][y][z];
+
+        int nx = x;
+        int nz = z;
+        int nChunkX = chunkX;
+        int nChunkZ = chunkZ;
+
+        if (x < 0) {
+            nChunkX -= 1;
+            nx = x + CHUNK_SIZE;
+        } else if (x >= CHUNK_SIZE) {
+            nChunkX += 1;
+            nx = x - CHUNK_SIZE;
+        }
+
+        if (z < 0) {
+            nChunkZ -= 1;
+            nz = z + CHUNK_SIZE;
+        } else if (z >= CHUNK_SIZE) {
+            nChunkZ += 1;
+            nz = z - CHUNK_SIZE;
+        }
+
+        if (nChunkX != chunkX || nChunkZ != chunkZ) {
+            if (neighborLookup == null) {
+                return true;
+            }
+            Chunk neighbor = neighborLookup.get(nChunkX + "_" + nChunkZ);
+            if (neighbor == null) {
+                return true;
+            }
+            return neighbor.getBlock(nx, y, nz) == Blocks.AIR.getId();
+        }
+
+        byte blockId = blocks[nx][y][nz];
         return blockId == Blocks.AIR.getId();
     }
 
