@@ -16,9 +16,9 @@ public class MobRaycast {
 
             Vector3f mobPos = mob.getPosition();
 
-            // Create a bounding box for the mob (approximate size)
-            float mobWidth = 0.8f;
-            float mobHeight = 1.8f;
+            // Create a bounding box for the mob using its real dimensions
+            float mobWidth = mob.getHalfWidth() * 2.0f;
+            float mobHeight = mob.getHeight();
 
             // Calculate intersection with mob's bounding box
             Float hitDistance = rayBoxIntersection(origin, direction, mobPos, mobWidth, mobHeight, mobWidth);

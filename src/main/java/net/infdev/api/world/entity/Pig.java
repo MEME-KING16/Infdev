@@ -12,7 +12,7 @@ public class Pig extends Mob {
     private static final float WANDER_RADIUS = 10.0f;
 
     public Pig(Vector3f position) {
-        super("Pig", position, 10.0f, 2.0f);
+        super("Pig", position, 10.0f, 5.0f, 0.8f, 0.6f);
         this.modelId = "pig_model";
     }
 

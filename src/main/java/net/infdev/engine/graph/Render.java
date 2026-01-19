@@ -36,15 +36,16 @@ public class Render {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
         glDepthMask(true);
-        //glEnable(GL_CULL_FACE);
-        //glCullFace(GL_BACK);
-        glDisable(GL_CULL_FACE);
         glFrontFace(GL_CCW);
         glDisable(GL_BLEND);
         glDisable(GL_SCISSOR_TEST);
 
+        glDisable(GL_CULL_FACE);
         skyBoxRender.render(scene);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.5f, 1.5f);
         sceneRender.render(scene);
+        glDisable(GL_POLYGON_OFFSET_FILL);
         guiRender.render(scene);
     }
 

@@ -470,7 +470,7 @@ public class Chunk {
             }
             Chunk neighbor = neighborLookup.get(nChunkX + "_" + nChunkZ);
             if (neighbor == null) {
-                return true;
+                return false;
             }
             return neighbor.getBlock(nx, y, nz) == Blocks.AIR.getId();
         }

@@ -15,7 +15,6 @@ import net.infdev.engine.MouseInput;
 import net.infdev.engine.Physics;
 import net.infdev.engine.Window;
 import net.infdev.engine.graph.Render;
-// import net.infdev.engine.graph.ItemModelRenderer; // DISABLED
 import net.infdev.engine.scene.Scene;
 import net.infdev.engine.scene.lights.SceneLights;
 import net.infdev.inventory.Inventory;
@@ -25,7 +24,6 @@ import net.infdev.engine.IGuiInstance;
 import net.infdev.util.BlockRaycast;
 import net.infdev.util.Chunk;
 import net.infdev.util.MobRaycast;
-import net.infdev.api.world.entity.Mob;
 import net.infdev.api.world.entity.MobManager;
 import net.infdev.api.world.entity.DroppedItemManager;
 import net.infdev.api.world.entity.DroppedItem;
@@ -52,7 +50,8 @@ public class Main implements IAppLogic, IGuiInstance {
         PAUSED,
         MODSLIST,
         CRAFTING_TABLE,
-        INFO
+        INFO,
+        DEATH
     }
     
     private GameState currentState = GameState.MENU;
@@ -60,12 +59,24 @@ public class Main implements IAppLogic, IGuiInstance {
     private static final float MOUSE_SENSITIVITY = 0.1f;
     private static final float MOVEMENT_SPEED = 0.005f;
     private static final int VIEW_RADIUS = 6;
+    private static final int UNLOAD_RADIUS = VIEW_RADIUS + 2;
+    private static final long UNLOAD_COOLDOWN_MS = 3000;
 
     private Engine gameEng;
     private final Map<String, Chunk> loadedChunks = new ConcurrentHashMap<>();
     private final Set<String> loadingChunks = ConcurrentHashMap.newKeySet();
     private final ExecutorService chunkExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentLinkedQueue<Chunk> readyChunks = new ConcurrentLinkedQueue<>();
+    private final Map<String, Long> chunkLastSeen = new ConcurrentHashMap<>();
+    private final Set<String> dirtyChunks = new HashSet<>();
+    private final Map<String, Chunk> pendingRender = new HashMap<>();
+    private final Map<String, Long> pendingSince = new HashMap<>();
+    private static final long PENDING_RENDER_TIMEOUT_MS = 2500;
+    private int lastPlayerChunkX = 0;
+    private int lastPlayerChunkZ = 0;
+    private Vector3f lastCameraPos = new Vector3f();
+    private long lastMoveTime = 0;
+    private static final long UNLOAD_MOVE_COOLDOWN_MS = 1000;
     public static Main main;
     public static String windowName = "Infdev 0.1.0-alpha.1";
     private Window window;
@@ -80,7 +91,6 @@ public class Main implements IAppLogic, IGuiInstance {
     private int hoveredSlot = -1;
     private Scene scene;
     private boolean hoveredIsHotbar = false;
-    // private ItemModelRenderer itemModelRenderer; // DISABLED
     private MobManager mobManager;
     private DroppedItemManager droppedItemManager;
     private long lastAttackTime = 0;
@@ -95,6 +105,8 @@ public class Main implements IAppLogic, IGuiInstance {
     private long lastHealthRegeneration = 0;
     private long lastHungerDamage = 0;
     private Vector3f respawnPosition = new Vector3f(0, 90, 0);
+    private long lastJumpTime = 0;
+    private static final long JUMP_COOLDOWN_MS = 350;
 
     // Block breaking progress tracking
     private Vector3i targetBlock = null;
@@ -135,9 +147,6 @@ public class Main implements IAppLogic, IGuiInstance {
         if (droppedItemManager != null) {
             droppedItemManager.cleanup();
         }
-        // if (itemModelRenderer != null) {
-        //     itemModelRenderer.cleanup();
-        // }
     }
 
     @Override
@@ -164,12 +173,6 @@ public class Main implements IAppLogic, IGuiInstance {
         droppedItemManager.setScene(scene);
         mobManager.setDroppedItemManager(droppedItemManager);
 
-        // Initialize ItemModelRenderer and render all item models
-        // DISABLED: 3D model rendering has issues, using 2D textures instead
-        // itemModelRenderer = null;
-        // itemModelRenderer = new ItemModelRenderer();
-        // itemModelRenderer.renderAllItems(scene);
-
         // Initialize crafting grids
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 2; j++) {
@@ -191,10 +194,10 @@ public class Main implements IAppLogic, IGuiInstance {
 
         // Don't capture cursor in menu
         if (currentState == GameState.PLAYING && !inventoryOpen) {
-            glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            captureMouse();
         }
 
-        scene.getCamera().moveUp(56f);
+        setInitialSpawn(scene.getCamera());
     }
 
     @Override
@@ -208,11 +211,14 @@ public class Main implements IAppLogic, IGuiInstance {
             renderModsList();
         } else if (currentState == GameState.INFO) {
             renderInfo();
+        } else if (currentState == GameState.DEATH) {
+            renderDeathScreen();
         } else if (currentState == GameState.PLAYING) {
             if (inventoryOpen) {
                 renderInventory();
             } else {
                 renderHotbar();
+                renderCrosshair();
             }
         } else if (currentState == GameState.CRAFTING_TABLE) {
             renderCraftingTable();
@@ -345,6 +351,24 @@ public class Main implements IAppLogic, IGuiInstance {
                 break;
             }
         }
+    }
+
+    private void renderCrosshair() {
+        ImGuiIO io = ImGui.getIO();
+        float centerX = io.getDisplaySizeX() * 0.5f;
+        float centerY = io.getDisplaySizeY() * 0.5f;
+
+        float size = 6.0f;
+        float thickness = 2.0f;
+
+        ImDrawList drawList = ImGui.getForegroundDrawList();
+        int color = ImGui.getColorU32(1.0f, 1.0f, 1.0f, 0.9f);
+        int outline = ImGui.getColorU32(0.0f, 0.0f, 0.0f, 0.7f);
+
+        drawList.addLine(centerX - size, centerY, centerX + size, centerY, outline, thickness + 1.0f);
+        drawList.addLine(centerX, centerY - size, centerX, centerY + size, outline, thickness + 1.0f);
+        drawList.addLine(centerX - size, centerY, centerX + size, centerY, color, thickness);
+        drawList.addLine(centerX, centerY - size, centerX, centerY + size, color, thickness);
     }
 
 
@@ -1073,9 +1097,79 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.popStyleVar(3);
     }
 
+    private void renderDeathScreen() {
+        ImGuiIO io = ImGui.getIO();
+        float windowWidth = io.getDisplaySizeX();
+        float windowHeight = io.getDisplaySizeY();
+
+        ImGui.setNextWindowPos(0, 0);
+        ImGui.setNextWindowSize(windowWidth, windowHeight);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.0f, 0.0f);
+
+        int windowFlags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize |
+                        ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoScrollbar |
+                        ImGuiWindowFlags.NoSavedSettings;
+
+        ImGui.begin("DeathScreen", windowFlags);
+
+        ImDrawList drawList = ImGui.getWindowDrawList();
+        drawList.addRectFilled(0, 0, windowWidth, windowHeight,
+                            ImGui.getColorU32(0.05f, 0.0f, 0.0f, 0.8f));
+
+        String title = "You Died";
+        float titleWidth = ImGui.calcTextSize(title).x * 2.5f;
+        float titleX = (windowWidth - titleWidth) / 2;
+        float titleY = windowHeight * 0.35f;
+
+        ImGui.setWindowFontScale(3.0f);
+        ImGui.setCursorPos(titleX + 3, titleY + 3);
+        ImGui.pushStyleColor(ImGuiCol.Text, 0.0f, 0.0f, 0.0f, 0.4f);
+        ImGui.text(title);
+        ImGui.popStyleColor();
+
+        ImGui.setCursorPos(titleX, titleY);
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 0.2f, 0.2f, 1.0f);
+        ImGui.text(title);
+        ImGui.popStyleColor();
+        ImGui.setWindowFontScale(1.0f);
+
+        float buttonWidth = 200;
+        float buttonHeight = 45;
+        float buttonX = (windowWidth - buttonWidth) / 2;
+        float buttonY = windowHeight * 0.55f;
+
+        ImGui.setCursorPos(buttonX, buttonY);
+        ImGui.pushStyleColor(ImGuiCol.Button, 0.3f, 0.0f, 0.0f, 0.8f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, 0.5f, 0.1f, 0.1f, 0.9f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonActive, 0.4f, 0.05f, 0.05f, 1.0f);
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        if (ImGui.button("Respawn", buttonWidth, buttonHeight)) {
+            respawn(scene);
+        }
+        ImGui.popStyleColor(4);
+
+        ImGui.end();
+        ImGui.popStyleVar(3);
+    }
+
     private void startNewGame() {
         currentState = GameState.PLAYING;
+        captureMouse();
+        setInitialSpawn(scene.getCamera());
+    }
+
+    private void captureMouse() {
         glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        MouseInput mouseInput = window.getMouseInput();
+        mouseInput.setInWindow(true);
+        mouseInput.reset();
+    }
+
+    private void releaseMouse() {
+        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        window.getMouseInput().reset();
     }
 
     @Override
@@ -1090,6 +1184,10 @@ public class Main implements IAppLogic, IGuiInstance {
         if (window.isKeyPressed(GLFW_KEY_E) && (System.currentTimeMillis() - lastInvStatusChangeTime) > 300) {
             lastInvStatusChangeTime = System.currentTimeMillis();
 
+            if (currentState == GameState.DEATH) {
+                return imGuiIO.getWantCaptureMouse() || imGuiIO.getWantCaptureKeyboard();
+            }
+
             if (currentState == GameState.CRAFTING_TABLE) {
                 // Close crafting table
                 closeCraftingTable();
@@ -1097,9 +1195,9 @@ public class Main implements IAppLogic, IGuiInstance {
                 // Toggle inventory
                 inventoryOpen = !inventoryOpen;
                 if (inventoryOpen) {
-                    glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    releaseMouse();
                 } else {
-                    glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    captureMouse();
                     if (heldItem != null) {
                         if (heldFromHotbar) {
                             inventory.setHotbarSlot(heldFromSlot, heldItem);
@@ -1488,7 +1586,7 @@ public class Main implements IAppLogic, IGuiInstance {
 
         craftingOutput = new ItemStack();
         currentState = GameState.PLAYING;
-        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        captureMouse();
     }
 
 
@@ -1550,9 +1648,12 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
 
-        if (window.isKeyPressed(GLFW_KEY_SPACE)) {
+        if (window.isKeyPressed(GLFW_KEY_SPACE)
+                && (System.currentTimeMillis() - lastJumpTime) >= JUMP_COOLDOWN_MS
+                && scene.getPhysics().isGrounded()) {
             scene.getPhysics().resetVelocity();
-            scene.getPhysics().changeVelocity(0.15f);
+            scene.getPhysics().changeVelocity(0.25f);
+            lastJumpTime = System.currentTimeMillis();
         }
 
         MouseInput mouseInput = window.getMouseInput();
@@ -1591,7 +1692,7 @@ public class Main implements IAppLogic, IGuiInstance {
                         // Open crafting table UI
                         craftingTablePos = new Vector3i(result.blockPos);
                         currentState = GameState.CRAFTING_TABLE;
-                        glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                        releaseMouse();
                         return;
                     }
                 }
@@ -1612,7 +1713,7 @@ public class Main implements IAppLogic, IGuiInstance {
 
                     c.setBlock(localX, result.previousBlockPos.y, localZ, blockId);
                     inventory.removeSelectedItem();
-                    c.rebuildMesh(scene, loadedChunks);
+                    c.rebuildMesh(scene, snapshotLoadedChunks());
                     rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
                 }
             }
@@ -1631,17 +1732,17 @@ public class Main implements IAppLogic, IGuiInstance {
                 if (mobHit.hit && mobHit.distance < 5.0f) {
                     // Attack the mob
                     lastAttackTime = currentTime;
-                    float damage = 1.0f; // Base damage with fist
+                    float damage = 4.0f; // Base damage with fist
 
                     // Check if player is holding a weapon
                     ItemStack selected = inventory.getSelectedItem();
                     if (!selected.isEmpty()) {
                         if (selected.getItem().equals(Items.WOODEN_SWORD)) {
-                            damage = 4.0f;
+                            damage = 8.0f;
                         } else if (selected.getItem().equals(Items.WOODEN_PICKAXE)) {
-                            damage = 2.0f;
+                            damage = 6.0f;
                         } else if (selected.getItem().equals(Items.WOODEN_AXE)) {
-                            damage = 3.0f;
+                            damage = 7.0f;
                         }
                     }
 
@@ -1720,7 +1821,7 @@ public class Main implements IAppLogic, IGuiInstance {
                                 // else: block requires tool but player doesn't have one, no drops
 
                                 c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
-                                c.rebuildMesh(scene, loadedChunks);
+                                c.rebuildMesh(scene, snapshotLoadedChunks());
                                 rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
 
                                 // Reset breaking progress
@@ -1752,6 +1853,7 @@ public class Main implements IAppLogic, IGuiInstance {
         if (window.isKeyPressed(GLFW_KEY_9)) inventory.setSelectedSlot(8);
 
         if (!inventoryOpen) {
+            mouseInput.setInWindow(true);
             Vector2f displVec = mouseInput.getDisplVec();
             camera.addRotation((float) Math.toRadians(displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(displVec.y * MOUSE_SENSITIVITY));
         }
@@ -1760,15 +1862,23 @@ public class Main implements IAppLogic, IGuiInstance {
     @Override
     public void update(Window window, Scene scene, long diffTimeMillis) {
         if (currentState == GameState.PLAYING) {
+            trackCameraMovement(scene);
             updateChunks(scene);
+            List<Chunk> newChunks = new ArrayList<>();
             Chunk c;
             while ((c = readyChunks.poll()) != null) {
                 String key = c.getChunkX() + "_" + c.getChunkZ();
                 loadedChunks.put(key, c);
-                c.buildMesh(loadedChunks);
-                c.uploadToScene(scene);
-                rebuildNeighborChunks(scene, c.getChunkX(), c.getChunkZ());
+                chunkLastSeen.put(key, System.currentTimeMillis());
+                newChunks.add(c);
+                pendingRender.put(key, c);
+                pendingSince.put(key, System.currentTimeMillis());
             }
+
+            processPendingChunks(scene);
+
+            unloadFar(scene, lastPlayerChunkX, lastPlayerChunkZ);
+            rebuildDirtyChunks(scene);
             updatePhysics(scene);
 
             // Update player health and hunger
@@ -1824,17 +1934,23 @@ public class Main implements IAppLogic, IGuiInstance {
     }
 
     private void handlePlayerDeath(Scene scene) {
-        // Reset player stats
-        playerHealth = maxPlayerHealth;
-        playerHunger = maxPlayerHunger;
-
-        // Teleport player to respawn position
-        Camera camera = scene.getCamera();
-        camera.setPosition(respawnPosition.x, respawnPosition.y, respawnPosition.z);
+        currentState = GameState.DEATH;
+        releaseMouse();
+        scene.getPhysics().resetVelocity();
     }
 
     public void damagePlayer(float damage) {
         playerHealth = Math.max(0, playerHealth - damage);
+    }
+
+    private void respawn(Scene scene) {
+        playerHealth = maxPlayerHealth;
+        playerHunger = maxPlayerHunger;
+        Camera camera = scene.getCamera();
+        placePlayerAtGround(camera, (int) respawnPosition.x, (int) respawnPosition.z);
+        scene.getPhysics().resetVelocity();
+        currentState = GameState.PLAYING;
+        captureMouse();
     }
 
     private void logInfo(Scene scene) {
@@ -1860,11 +1976,17 @@ public class Main implements IAppLogic, IGuiInstance {
         Vector3f pos = scene.getCamera().getPosition();
         int playerChunkX = (int)Math.floor(pos.x / Chunk.CHUNK_SIZE);
         int playerChunkZ = (int)Math.floor(pos.z / Chunk.CHUNK_SIZE);
+        lastPlayerChunkX = playerChunkX;
+        lastPlayerChunkZ = playerChunkZ;
+        long now = System.currentTimeMillis();
         for (int dz = -VIEW_RADIUS; dz <= VIEW_RADIUS; dz++) {
             for (int dx = -VIEW_RADIUS; dx <= VIEW_RADIUS; dx++) {
                 int cx = playerChunkX + dx;
                 int cz = playerChunkZ + dz;
                 String key = cx + "_" + cz;
+                if (loadedChunks.containsKey(key)) {
+                    chunkLastSeen.put(key, now);
+                }
                 if (!loadedChunks.containsKey(key) && !loadingChunks.contains(key)) {
                     loadingChunks.add(key);
                     chunkExecutor.submit(() -> {
@@ -1876,7 +1998,6 @@ public class Main implements IAppLogic, IGuiInstance {
                 }
             }
         }
-        unloadFar(scene, playerChunkX, playerChunkZ);
     }
 
     public Map<String, Chunk> getLoadedChunks() {
@@ -1884,6 +2005,10 @@ public class Main implements IAppLogic, IGuiInstance {
     }
 
     private void unloadFar(Scene scene, int px, int pz) {
+        long now = System.currentTimeMillis();
+        if (!loadingChunks.isEmpty() || (now - lastMoveTime) < UNLOAD_MOVE_COOLDOWN_MS) {
+            return;
+        }
         List<int[]> toRemove = new ArrayList<>();
         for (Map.Entry<String, Chunk> e : loadedChunks.entrySet()) {
             String[] s = e.getKey().split("_");
@@ -1891,8 +2016,11 @@ public class Main implements IAppLogic, IGuiInstance {
             int cz = Integer.parseInt(s[1]);
             int dx = Math.abs(cx - px);
             int dz = Math.abs(cz - pz);
-            if (dx > VIEW_RADIUS + 1 || dz > VIEW_RADIUS + 1) {
-                toRemove.add(new int[] { cx, cz });
+            if (dx > UNLOAD_RADIUS || dz > UNLOAD_RADIUS) {
+                Long lastSeen = chunkLastSeen.get(e.getKey());
+                if (lastSeen == null || now - lastSeen > UNLOAD_COOLDOWN_MS) {
+                    toRemove.add(new int[] { cx, cz });
+                }
             }
         }
 
@@ -1900,9 +2028,20 @@ public class Main implements IAppLogic, IGuiInstance {
             String key = coords[0] + "_" + coords[1];
             Chunk removed = loadedChunks.remove(key);
             if (removed != null) {
+                chunkLastSeen.remove(key);
+                pendingRender.remove(key);
+                pendingSince.remove(key);
                 removed.removeFromScene(scene);
-                rebuildNeighborChunks(scene, coords[0], coords[1]);
+                markDirtyNeighbors(coords[0], coords[1]);
             }
+        }
+    }
+
+    private void trackCameraMovement(Scene scene) {
+        Vector3f pos = scene.getCamera().getPosition();
+        if (pos.distanceSquared(lastCameraPos) > 0.0001f) {
+            lastCameraPos.set(pos);
+            lastMoveTime = System.currentTimeMillis();
         }
     }
 
@@ -1969,7 +2108,117 @@ public class Main implements IAppLogic, IGuiInstance {
     private void rebuildChunkIfLoaded(Scene scene, int chunkX, int chunkZ) {
         Chunk neighbor = loadedChunks.get(chunkX + "_" + chunkZ);
         if (neighbor != null) {
-            neighbor.rebuildMesh(scene, loadedChunks);
+            neighbor.rebuildMesh(scene, snapshotLoadedChunks());
         }
+    }
+
+    private Map<String, Chunk> snapshotLoadedChunks() {
+        return new HashMap<>(loadedChunks);
+    }
+
+    private void markDirtyChunk(String key) {
+        dirtyChunks.add(key);
+    }
+
+    private void markDirtyNeighbors(int chunkX, int chunkZ) {
+        dirtyChunks.add((chunkX - 1) + "_" + chunkZ);
+        dirtyChunks.add((chunkX + 1) + "_" + chunkZ);
+        dirtyChunks.add(chunkX + "_" + (chunkZ - 1));
+        dirtyChunks.add(chunkX + "_" + (chunkZ + 1));
+    }
+
+    private void rebuildDirtyChunks(Scene scene) {
+        if (dirtyChunks.isEmpty()) {
+            return;
+        }
+        Map<String, Chunk> snapshot = snapshotLoadedChunks();
+        for (String key : dirtyChunks) {
+            Chunk chunk = loadedChunks.get(key);
+            if (chunk != null) {
+                chunk.rebuildMesh(scene, snapshot);
+            }
+        }
+        dirtyChunks.clear();
+    }
+
+    private void processPendingChunks(Scene scene) {
+        if (pendingRender.isEmpty()) {
+            return;
+        }
+        Map<String, Chunk> snapshot = snapshotLoadedChunks();
+        long now = System.currentTimeMillis();
+        List<String> readyKeys = new ArrayList<>();
+
+        for (Map.Entry<String, Chunk> entry : pendingRender.entrySet()) {
+            String key = entry.getKey();
+            Chunk chunk = entry.getValue();
+            int cx = chunk.getChunkX();
+            int cz = chunk.getChunkZ();
+            boolean neighborsReady = hasNeighbor(snapshot, cx - 1, cz)
+                && hasNeighbor(snapshot, cx + 1, cz)
+                && hasNeighbor(snapshot, cx, cz - 1)
+                && hasNeighbor(snapshot, cx, cz + 1)
+                && hasNeighbor(snapshot, cx - 1, cz - 1)
+                && hasNeighbor(snapshot, cx - 1, cz + 1)
+                && hasNeighbor(snapshot, cx + 1, cz - 1)
+                && hasNeighbor(snapshot, cx + 1, cz + 1);
+            Long since = pendingSince.get(key);
+            boolean timedOut = since == null || (now - since) > PENDING_RENDER_TIMEOUT_MS;
+            if (neighborsReady || timedOut) {
+                chunk.buildMesh(snapshot);
+                chunk.uploadToScene(scene);
+                markDirtyNeighbors(cx, cz);
+                readyKeys.add(key);
+            }
+        }
+
+        for (String key : readyKeys) {
+            pendingRender.remove(key);
+            pendingSince.remove(key);
+        }
+    }
+
+    private boolean hasNeighbor(Map<String, Chunk> snapshot, int cx, int cz) {
+        return snapshot.containsKey(cx + "_" + cz);
+    }
+
+    private void setInitialSpawn(Camera camera) {
+        int spawnX = 0;
+        int spawnZ = 0;
+        placePlayerAtGround(camera, spawnX, spawnZ);
+        respawnPosition.set(camera.getPosition());
+    }
+
+    private void placePlayerAtGround(Camera camera, int worldX, int worldZ) {
+        int surfaceY = getSurfaceHeight(worldX, worldZ);
+        float y = surfaceY + 1.5f;
+        camera.setPosition(worldX + 0.5f, y, worldZ + 0.5f);
+    }
+
+    private int getSurfaceHeight(int worldX, int worldZ) {
+        int chunkX = (int) Math.floor((double) worldX / Chunk.CHUNK_SIZE);
+        int chunkZ = (int) Math.floor((double) worldZ / Chunk.CHUNK_SIZE);
+        String key = chunkX + "_" + chunkZ;
+        Chunk chunk = loadedChunks.get(key);
+        if (chunk == null) {
+            Chunk temp = new Chunk(chunkX, chunkZ);
+            temp.buildData();
+            return findSurfaceHeightInChunk(temp, worldX, worldZ);
+        }
+        return findSurfaceHeightInChunk(chunk, worldX, worldZ);
+    }
+
+    private int findSurfaceHeightInChunk(Chunk chunk, int worldX, int worldZ) {
+        int chunkX = chunk.getChunkX();
+        int chunkZ = chunk.getChunkZ();
+        int localX = worldX - (chunkX * Chunk.CHUNK_SIZE);
+        int localZ = worldZ - (chunkZ * Chunk.CHUNK_SIZE);
+        for (int y = Chunk.CHUNK_HEIGHT - 1; y >= 0; y--) {
+            byte blockId = chunk.getBlock(localX, y, localZ);
+            if (blockId != Blocks.AIR.getId() && blockId != Blocks.WATER.getId()) {
+                return y;
+            }
+        }
+        return 0;
     }
 }

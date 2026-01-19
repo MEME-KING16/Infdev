@@ -66,4 +66,15 @@ public class MouseInput {
     public boolean isRightButtonPressed() {
         return rightButtonPressed;
     }
+
+    public void reset() {
+        displVec.x = 0;
+        displVec.y = 0;
+        previousPos.x = currentPos.x;
+        previousPos.y = currentPos.y;
+    }
+
+    public void setInWindow(boolean inWindow) {
+        this.inWindow = inWindow;
+    }
 }

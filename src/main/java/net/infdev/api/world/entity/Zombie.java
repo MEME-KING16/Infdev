@@ -19,7 +19,7 @@ public class Zombie extends Mob {
     private long lastAttackTime = 0;
 
     public Zombie(Vector3f position) {
-        super("Zombie", position, 20.0f, 3.5f);
+        super("Zombie", position, 20.0f, 6.5f, 0.6f, 0.9f);
         this.pathfinder = new Pathfinding();
         this.modelId = "zombie_model";
     }

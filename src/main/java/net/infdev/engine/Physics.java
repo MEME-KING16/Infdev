@@ -135,4 +135,8 @@ public class Physics {
         velocityY += amt;
         isGrounded = false;
     }
+
+    public boolean isGrounded() {
+        return isGrounded;
+    }
 }

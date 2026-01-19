@@ -13,7 +13,8 @@ public class DroppedItem {
     private long spawnTime;
     private static final float BOB_SPEED = 2.0f;
     private static final float BOB_HEIGHT = 0.1f;
-    private static final float PICKUP_RADIUS = 1.5f;
+    private static final float PICKUP_RADIUS = 2.0f;
+    private static final float PICKUP_VERTICAL_TOLERANCE = 2.5f;
 
     public DroppedItem(Vector3f position, Item item, int count) {
         this.position = new Vector3f(position);
@@ -37,9 +38,15 @@ public class DroppedItem {
 
     public boolean canPickup(Vector3f playerPos) {
         float dx = playerPos.x - position.x;
-        float dy = playerPos.y - position.y;
         float dz = playerPos.z - position.z;
-        float distanceSq = dx * dx + dy * dy + dz * dz;
+        float dy = Math.abs(playerPos.y - position.y);
+
+        // Ignore vertical distance beyond a small tolerance, focus on horizontal pickup
+        if (dy > PICKUP_VERTICAL_TOLERANCE) {
+            return false;
+        }
+
+        float distanceSq = dx * dx + dz * dz;
         return distanceSq <= PICKUP_RADIUS * PICKUP_RADIUS;
     }
 

@@ -121,7 +121,7 @@ public class MobManager {
 
             // Update AI and movement
             mob.updateAI(camera, loadedChunks, deltaTime);
-            mob.update(deltaTime);
+            mob.update(deltaTime, loadedChunks);
         }
 
         // Spawn new mobs
@@ -206,9 +206,15 @@ public class MobManager {
             mob = new Zombie(position);
         }
 
+        float adjustedY = position.y;
+        if (mob.getHeight() > 0) {
+            adjustedY = position.y + (mob.getHeight() * 0.5f);
+        }
+        mob.setPosition(new Vector3f(position.x, adjustedY, position.z));
+
         // Create render entity
         Entity entity = new Entity("mob_" + System.currentTimeMillis(), mob.getModelId());
-        entity.setPosition(position.x, position.y, position.z);
+        entity.setPosition(mob.getPosition().x, mob.getPosition().y, mob.getPosition().z);
         entity.setScale(1.0f);
         entity.updateModelMatrix();
 
