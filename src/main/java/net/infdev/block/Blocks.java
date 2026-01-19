@@ -21,6 +21,17 @@ public class Blocks {
 	public static final Block CRAFTING_TABLE = new Block("Crafting Table");
 
 	public static void registerBlocks(Scene scene) {
+		// Set block hardness values (in seconds)
+		DIRT.setHardness(0.5f);
+		GRASS.setHardness(0.5f);
+		STONE.setHardness(3.0f);
+		STONE.setRequiresTool(true);
+		OAK_LOG.setHardness(2.0f);
+		OAK_LEAVES.setHardness(0.2f);
+		SAND.setHardness(0.5f);
+		WATER.setHardness(100.0f);
+		CRAFTING_TABLE.setHardness(2.5f);
+
 		scene.getTextureCache().addTexture("models/block/stone.png");
 		scene.getTextureCache().addTexture("models/block/dirt.png");
 		scene.getTextureCache().addTexture("models/block/grass_block.png");

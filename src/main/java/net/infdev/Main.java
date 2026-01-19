@@ -7,6 +7,7 @@ import imgui.flag.ImGuiStyleVar;
 import imgui.flag.ImGuiWindowFlags;
 import net.infdev.api.world.item.Item;
 import net.infdev.api.world.item.ItemStack;
+import net.infdev.api.world.block.Block;
 import net.infdev.block.Blocks;
 import net.infdev.engine.Engine;
 import net.infdev.engine.IAppLogic;
@@ -23,7 +24,11 @@ import net.infdev.engine.scene.Camera;
 import net.infdev.engine.IGuiInstance;
 import net.infdev.util.BlockRaycast;
 import net.infdev.util.Chunk;
+import net.infdev.util.MobRaycast;
+import net.infdev.api.world.entity.Mob;
 import net.infdev.api.world.entity.MobManager;
+import net.infdev.api.world.entity.DroppedItemManager;
+import net.infdev.api.world.entity.DroppedItem;
 import net.infdev.crafting.RecipeManager;
 
 import org.joml.*;
@@ -46,7 +51,8 @@ public class Main implements IAppLogic, IGuiInstance {
         PLAYING,
         PAUSED,
         MODSLIST,
-        CRAFTING_TABLE
+        CRAFTING_TABLE,
+        INFO
     }
     
     private GameState currentState = GameState.MENU;
@@ -76,6 +82,24 @@ public class Main implements IAppLogic, IGuiInstance {
     private boolean hoveredIsHotbar = false;
     // private ItemModelRenderer itemModelRenderer; // DISABLED
     private MobManager mobManager;
+    private DroppedItemManager droppedItemManager;
+    private long lastAttackTime = 0;
+    private static final long ATTACK_COOLDOWN = 600; // 600ms attack cooldown (1.67 attacks per second)
+
+    // Player stats
+    private float playerHealth = 20.0f;
+    private float maxPlayerHealth = 20.0f;
+    private float playerHunger = 20.0f;
+    private float maxPlayerHunger = 20.0f;
+    private long lastHungerDepletion = 0;
+    private long lastHealthRegeneration = 0;
+    private long lastHungerDamage = 0;
+    private Vector3f respawnPosition = new Vector3f(0, 90, 0);
+
+    // Block breaking progress tracking
+    private Vector3i targetBlock = null;
+    private float breakingProgress = 0.0f;
+    private long lastBreakingUpdateTime = 0;
 
     // Crafting variables
     private final ItemStack[][] craftingGrid2x2 = new ItemStack[2][2];
@@ -108,6 +132,9 @@ public class Main implements IAppLogic, IGuiInstance {
         if (mobManager != null) {
             mobManager.cleanup();
         }
+        if (droppedItemManager != null) {
+            droppedItemManager.cleanup();
+        }
         // if (itemModelRenderer != null) {
         //     itemModelRenderer.cleanup();
         // }
@@ -132,6 +159,11 @@ public class Main implements IAppLogic, IGuiInstance {
         mobManager = new MobManager();
         mobManager.setScene(scene);
 
+        // Initialize dropped item system
+        droppedItemManager = new DroppedItemManager();
+        droppedItemManager.setScene(scene);
+        mobManager.setDroppedItemManager(droppedItemManager);
+
         // Initialize ItemModelRenderer and render all item models
         // DISABLED: 3D model rendering has issues, using 2D textures instead
         // itemModelRenderer = null;
@@ -154,13 +186,15 @@ public class Main implements IAppLogic, IGuiInstance {
         inventory.addItem(Items.DIRT, 64);
         inventory.addItem(Items.STONE, 64);
         inventory.addItem(Items.OAK_LOG, 64);
-        
+        inventory.addItem(Items.COOKED_PORKCHOP, 16);
+        inventory.addItem(Items.COOKED_BEEF, 16);
+
         // Don't capture cursor in menu
         if (currentState == GameState.PLAYING && !inventoryOpen) {
             glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 
-        scene.getCamera().moveUp(90f);
+        scene.getCamera().moveUp(56f);
     }
 
     @Override
@@ -172,6 +206,8 @@ public class Main implements IAppLogic, IGuiInstance {
             renderMenu();
         } else if (currentState == GameState.MODSLIST) {
             renderModsList();
+        } else if (currentState == GameState.INFO) {
+            renderInfo();
         } else if (currentState == GameState.PLAYING) {
             if (inventoryOpen) {
                 renderInventory();
@@ -191,15 +227,66 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGuiIO io = ImGui.getIO();
         float windowWidth = io.getDisplaySizeX();
         float windowHeight = io.getDisplaySizeY();
-        
+
         float slotSize = 50;
         float spacing = 2;
         float totalWidth = (slotSize + spacing) * 9 - spacing;
         float startX = (windowWidth - totalWidth) / 2;
         float startY = windowHeight - slotSize - 20;
-        
+
         ImDrawList drawList = ImGui.getBackgroundDrawList();
-        
+
+        // Render health bar (red hearts) above hotbar
+        float heartSize = 16;
+        float heartSpacing = 2;
+        float healthBarY = startY - heartSize - 10;
+        float healthBarX = startX;
+
+        int maxHearts = 10; // Display 10 hearts for 20 HP
+        for (int i = 0; i < maxHearts; i++) {
+            float x = healthBarX + i * (heartSize + heartSpacing);
+            float heartFill = Math.max(0, Math.min(1, (playerHealth - i * 2) / 2.0f));
+
+            // Draw heart background (empty heart)
+            drawList.addRectFilled(x, healthBarY, x + heartSize, healthBarY + heartSize,
+                ImGui.getColorU32(0.2f, 0.0f, 0.0f, 0.8f));
+
+            // Draw filled portion (red)
+            if (heartFill > 0) {
+                float fillWidth = heartSize * heartFill;
+                drawList.addRectFilled(x, healthBarY, x + fillWidth, healthBarY + heartSize,
+                    ImGui.getColorU32(1.0f, 0.0f, 0.0f, 1.0f));
+            }
+
+            // Draw heart border
+            drawList.addRect(x, healthBarY, x + heartSize, healthBarY + heartSize,
+                ImGui.getColorU32(0.5f, 0.5f, 0.5f, 1.0f), 0, 0, 1.0f);
+        }
+
+        // Render hunger bar (food icons) above health bar
+        float hungerBarY = healthBarY - heartSize - 10;
+        float hungerBarX = startX + totalWidth - (maxHearts * (heartSize + heartSpacing));
+
+        for (int i = 0; i < maxHearts; i++) {
+            float x = hungerBarX + i * (heartSize + heartSpacing);
+            float hungerFill = Math.max(0, Math.min(1, (playerHunger - i * 2) / 2.0f));
+
+            // Draw hunger background (empty food icon)
+            drawList.addRectFilled(x, hungerBarY, x + heartSize, hungerBarY + heartSize,
+                ImGui.getColorU32(0.2f, 0.15f, 0.0f, 0.8f));
+
+            // Draw filled portion (orange/brown)
+            if (hungerFill > 0) {
+                float fillWidth = heartSize * hungerFill;
+                drawList.addRectFilled(x, hungerBarY, x + fillWidth, hungerBarY + heartSize,
+                    ImGui.getColorU32(0.8f, 0.5f, 0.2f, 1.0f));
+            }
+
+            // Draw border
+            drawList.addRect(x, hungerBarY, x + heartSize, hungerBarY + heartSize,
+                ImGui.getColorU32(0.5f, 0.5f, 0.5f, 1.0f), 0, 0, 1.0f);
+        }
+
         for (int i = 0; i < 9; i++) {
             float x = startX + i * (slotSize + spacing);
             
@@ -870,7 +957,13 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
 
-        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * (ModLoader.getModsLoaded() == 0 ? 2 : 3));
+        int buttonIndex = ModLoader.getModsLoaded() == 0 ? 2 : 3;
+        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * buttonIndex);
+        if (ImGui.button("Info", buttonWidth, buttonHeight)) {
+            currentState = GameState.INFO;
+        }
+
+        ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * (buttonIndex + 1));
         if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
             System.exit(0);
         }
@@ -891,13 +984,95 @@ public class Main implements IAppLogic, IGuiInstance {
 
     private void renderModsList() {
         ImGui.begin("Mods List");
-        
+
         ImGui.text("Mods Loaded: " + ModLoader.getModsLoaded());
         ImGui.text("Mods: " + ModLoader.getMods());
-        
+
         ImGui.end();
     }
-    
+
+    private void renderInfo() {
+        ImGuiIO io = ImGui.getIO();
+        float windowWidth = io.getDisplaySizeX();
+        float windowHeight = io.getDisplaySizeY();
+
+        ImGui.setNextWindowPos(0, 0);
+        ImGui.setNextWindowSize(windowWidth, windowHeight);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.0f, 0.0f);
+
+        int windowFlags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize |
+                        ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoScrollbar |
+                        ImGuiWindowFlags.NoSavedSettings;
+
+        ImGui.begin("InfoMenu", windowFlags);
+
+        ImDrawList drawList = ImGui.getWindowDrawList();
+        drawList.addRectFilled(0, 0, windowWidth, windowHeight,
+                            ImGui.getColorU32(0.15f, 0.15f, 0.15f, 1.0f));
+
+        float contentWidth = 600;
+        float contentHeight = 400;
+        float centerX = (windowWidth - contentWidth) / 2;
+        float centerY = (windowHeight - contentHeight) / 2;
+
+        ImGui.setCursorPos(centerX, centerY);
+
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        ImGui.setWindowFontScale(2.0f);
+        ImGui.text("Game Info");
+        ImGui.setWindowFontScale(1.0f);
+
+        ImGui.setCursorPos(centerX, centerY + 60);
+        ImGui.text("INFDEV - Minecraft Clone");
+
+        ImGui.setCursorPos(centerX, centerY + 90);
+        ImGui.text("Version: 0.1.0-alpha.1");
+
+        ImGui.setCursorPos(centerX, centerY + 120);
+        ImGui.text("Controls:");
+        ImGui.setCursorPos(centerX + 20, centerY + 145);
+        ImGui.text("WASD - Move");
+        ImGui.setCursorPos(centerX + 20, centerY + 165);
+        ImGui.text("Space - Jump");
+        ImGui.setCursorPos(centerX + 20, centerY + 185);
+        ImGui.text("E - Inventory");
+        ImGui.setCursorPos(centerX + 20, centerY + 205);
+        ImGui.text("Left Click - Break Block");
+        ImGui.setCursorPos(centerX + 20, centerY + 225);
+        ImGui.text("Right Click - Place Block/Use block/item");
+        ImGui.setCursorPos(centerX + 20, centerY + 245);
+        ImGui.text("1-9 - Select Hotbar Slot");
+
+        ImGui.popStyleColor();
+
+        float buttonWidth = 200;
+        float buttonHeight = 40;
+        float buttonX = (windowWidth - buttonWidth) / 2;
+        float buttonY = centerY + contentHeight - 60;
+
+        ImGui.setCursorPos(buttonX, buttonY);
+
+        ImGui.pushStyleColor(ImGuiCol.Button, 0.0f, 0.0f, 0.0f, 0.5f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, 0.3f, 0.3f, 0.8f, 0.8f);
+        ImGui.pushStyleColor(ImGuiCol.ButtonActive, 0.2f, 0.2f, 0.6f, 1.0f);
+        ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 0.0f);
+        ImGui.pushStyleVar(ImGuiStyleVar.FrameBorderSize, 2.0f);
+        ImGui.pushStyleColor(ImGuiCol.Border, 0.6f, 0.6f, 0.6f, 1.0f);
+
+        if (ImGui.button("Back", buttonWidth, buttonHeight)) {
+            currentState = GameState.MENU;
+        }
+
+        ImGui.popStyleColor(5);
+        ImGui.popStyleVar(2);
+
+        ImGui.end();
+        ImGui.popStyleVar(3);
+    }
+
     private void startNewGame() {
         currentState = GameState.PLAYING;
         glfwSetInputMode(window.getWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -1325,39 +1500,60 @@ public class Main implements IAppLogic, IGuiInstance {
         
         float move = diffTimeMillis * MOVEMENT_SPEED;
         Camera camera = scene.getCamera();
-        Vector3f oldPos = new Vector3f(camera.getPosition());
+        Vector3f pos = camera.getPosition();
+
+        float dx = 0, dz = 0;
 
         if (window.isKeyPressed(GLFW_KEY_W)) {
-            camera.moveForwardFlat(move);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
-            }
+            Vector3f forward = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
+            forward.y = 0;
+            forward.normalize();
+            dx += forward.x * move;
+            dz += forward.z * move;
         } else if (window.isKeyPressed(GLFW_KEY_S)) {
-            camera.moveBackwardsFlat(move);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
-            }
+            Vector3f backward = camera.getViewMatrix().positiveZ(new Vector3f());
+            backward.y = 0;
+            backward.normalize();
+            dx += backward.x * move;
+            dz += backward.z * move;
         }
+
         if (window.isKeyPressed(GLFW_KEY_A)) {
-            camera.moveLeftFlat(move);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
-            }
+            Vector3f left = camera.getViewMatrix().positiveX(new Vector3f()).negate();
+            left.y = 0;
+            left.normalize();
+            dx += left.x * move;
+            dz += left.z * move;
         } else if (window.isKeyPressed(GLFW_KEY_D)) {
-            camera.moveRightFlat(move);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
+            Vector3f right = camera.getViewMatrix().positiveX(new Vector3f());
+            right.y = 0;
+            right.normalize();
+            dx += right.x * move;
+            dz += right.z * move;
+        }
+
+        // Apply X movement
+        if (dx != 0) {
+            float oldX = pos.x;
+            pos.x += dx;
+            if (Physics.checkCollision(pos)) {
+                pos.x = oldX;
             }
         }
+
+        // Apply Z movement
+        if (dz != 0) {
+            float oldZ = pos.z;
+            pos.z += dz;
+            if (Physics.checkCollision(pos)) {
+                pos.z = oldZ;
+            }
+        }
+
         if (window.isKeyPressed(GLFW_KEY_SPACE)) {
             scene.getPhysics().resetVelocity();
             scene.getPhysics().changeVelocity(0.15f);
-            if (Physics.checkCollision(camera.getPosition())) {
-                camera.getPosition().set(oldPos);
-            }
         }
-
-        oldPos.set(camera.getPosition());
 
         MouseInput mouseInput = window.getMouseInput();
 
@@ -1367,6 +1563,17 @@ public class Main implements IAppLogic, IGuiInstance {
             Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
 
             BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
+
+            // Check if holding food item
+            ItemStack selected = inventory.getSelectedItem();
+            if (!selected.isEmpty() && selected.getItem().isFood()) {
+                // Consume food
+                if (playerHunger < maxPlayerHunger) {
+                    playerHunger = Math.min(maxPlayerHunger, playerHunger + selected.getItem().getFoodValue());
+                    inventory.removeSelectedItem();
+                }
+                return;
+            }
 
             // Check if clicking on a crafting table
             if (result.hit) {
@@ -1391,7 +1598,6 @@ public class Main implements IAppLogic, IGuiInstance {
             }
 
             // Place block if not clicking on crafting table
-            ItemStack selected = inventory.getSelectedItem();
             if (!selected.isEmpty() && result.hit && !result.previousBlockPos.equals(new Vector3i((int) camPos.x,(int) camPos.y,(int) camPos.z))) {
                 int chunkX = (int) Math.floor((double) result.previousBlockPos.x / Chunk.CHUNK_SIZE);
                 int chunkZ = (int) Math.floor((double) result.previousBlockPos.z / Chunk.CHUNK_SIZE);
@@ -1411,33 +1617,126 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
 
-        if (mouseInput.isLeftButtonPressed() && !inputConsumed && (System.currentTimeMillis() - lastBlockBreakTime) > 200) {
-            lastBlockBreakTime = System.currentTimeMillis();
+        // Combat and block breaking with progressive mining
+        if (mouseInput.isLeftButtonPressed() && !inputConsumed) {
             Vector3f camPos = camera.getPosition();
             Vector3f camDir = camera.getViewMatrix().positiveZ(new Vector3f()).negate();
-            
+
+            // First check for mob attacks with cooldown
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastAttackTime >= ATTACK_COOLDOWN) {
+                MobRaycast.MobHitResult mobHit = MobRaycast.raycast(camPos, camDir, mobManager.getMobs(), 5.0f);
+
+                if (mobHit.hit && mobHit.distance < 5.0f) {
+                    // Attack the mob
+                    lastAttackTime = currentTime;
+                    float damage = 1.0f; // Base damage with fist
+
+                    // Check if player is holding a weapon
+                    ItemStack selected = inventory.getSelectedItem();
+                    if (!selected.isEmpty()) {
+                        if (selected.getItem().equals(Items.WOODEN_SWORD)) {
+                            damage = 4.0f;
+                        } else if (selected.getItem().equals(Items.WOODEN_PICKAXE)) {
+                            damage = 2.0f;
+                        } else if (selected.getItem().equals(Items.WOODEN_AXE)) {
+                            damage = 3.0f;
+                        }
+                    }
+
+                    mobHit.mob.damage(damage);
+
+                    // Reset block breaking progress when attacking
+                    targetBlock = null;
+                    breakingProgress = 0.0f;
+                    return; // Don't break blocks when attacking mobs
+                }
+            }
+
+            // If no mob was hit or attack on cooldown, try to break blocks
             BlockRaycast.BlockHitResult result = BlockRaycast.raycast(camPos, camDir, loadedChunks, 5.0f);
-            
-                if (result.hit) {
+
+            if (result.hit) {
+                // Check if we're targeting a new block
+                if (targetBlock == null || !targetBlock.equals(result.blockPos)) {
+                    targetBlock = new Vector3i(result.blockPos);
+                    breakingProgress = 0.0f;
+                    lastBreakingUpdateTime = System.currentTimeMillis();
+                }
+
+                // Calculate mining speed
+                long breakingTime = System.currentTimeMillis();
+                long deltaTime = breakingTime - lastBreakingUpdateTime;
+                lastBreakingUpdateTime = breakingTime;
+
                 int chunkX = (int) Math.floor((double) result.blockPos.x / Chunk.CHUNK_SIZE);
                 int chunkZ = (int) Math.floor((double) result.blockPos.z / Chunk.CHUNK_SIZE);
                 String key = chunkX + "_" + chunkZ;
-                
+
                 Chunk c = loadedChunks.get(key);
                 if (c != null) {
                     int localX = result.blockPos.x - (chunkX * Chunk.CHUNK_SIZE);
                     int localZ = result.blockPos.z - (chunkZ * Chunk.CHUNK_SIZE);
-                    
-                    byte brokenBlock = c.getBlock(localX, result.blockPos.y, localZ);
-                    if (brokenBlock != Blocks.AIR.getId()) {
-                        Item item = getItemFromBlock(brokenBlock);
-                        inventory.addItem(item, 1);
-                    }
 
-                    c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
-                    c.rebuildMesh(scene);
+                    byte blockId = c.getBlock(localX, result.blockPos.y, localZ);
+                    if (blockId != Blocks.AIR.getId()) {
+                        Block block = getBlockFromId(blockId);
+                        if (block != null) {
+                            float blockHardness = block.getHardness();
+                            boolean requiresTool = block.requiresTool();
+
+                            // Get held item and calculate mining speed
+                            ItemStack heldItemStack = inventory.getSelectedItem();
+                            Item heldTool = heldItemStack.isEmpty() ? null : heldItemStack.getItem();
+                            float miningSpeed = 1.0f;
+                            boolean hasProperTool = !requiresTool;
+
+                            if (heldTool != null) {
+                                String toolType = heldTool.getToolType();
+                                if (toolType != null) {
+                                    if (toolType.equals("pickaxe") && requiresTool) {
+                                        hasProperTool = true;
+                                        miningSpeed = heldTool.getMiningSpeedMultiplier();
+                                    } else if (toolType.equals("axe") && blockId == Blocks.OAK_LOG.getId()) {
+                                        miningSpeed = heldTool.getMiningSpeedMultiplier();
+                                    } else if (toolType.equals("shovel") &&
+                                             (blockId == Blocks.DIRT.getId() || blockId == Blocks.GRASS.getId() || blockId == Blocks.SAND.getId())) {
+                                        miningSpeed = heldTool.getMiningSpeedMultiplier();
+                                    }
+                                }
+                            }
+
+                            // Accumulate breaking progress
+                            float progressPerSecond = 1.0f / blockHardness * miningSpeed;
+                            breakingProgress += (deltaTime / 1000.0f) * progressPerSecond;
+
+                            // Break block when progress reaches 100%
+                            if (breakingProgress >= 1.0f) {
+                                if (hasProperTool) {
+                                    Item item = getItemFromBlock(blockId);
+                                    inventory.addItem(item, 1);
+                                }
+                                // else: block requires tool but player doesn't have one, no drops
+
+                                c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
+                                c.rebuildMesh(scene);
+
+                                // Reset breaking progress
+                                targetBlock = null;
+                                breakingProgress = 0.0f;
+                            }
+                        }
+                    }
                 }
+            } else {
+                // Not looking at any block, reset progress
+                targetBlock = null;
+                breakingProgress = 0.0f;
             }
+        } else {
+            // Not holding left click, reset progress
+            targetBlock = null;
+            breakingProgress = 0.0f;
         }
 
         if (window.isKeyPressed(GLFW_KEY_1)) inventory.setSelectedSlot(0);
@@ -1452,7 +1751,7 @@ public class Main implements IAppLogic, IGuiInstance {
 
         if (!inventoryOpen) {
             Vector2f displVec = mouseInput.getDisplVec();
-            camera.addRotation((float) Math.toRadians(-displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(-displVec.y * MOUSE_SENSITIVITY));
+            camera.addRotation((float) Math.toRadians(displVec.x * MOUSE_SENSITIVITY), (float) Math.toRadians(displVec.y * MOUSE_SENSITIVITY));
         }
     }
 
@@ -1469,11 +1768,70 @@ public class Main implements IAppLogic, IGuiInstance {
             }
             updatePhysics(scene);
 
+            // Update player health and hunger
+            updatePlayerStats();
+
             // Update mobs
             if (mobManager != null) {
                 mobManager.update(scene.getCamera(), loadedChunks, (long) gameEng.getDeltaTime());
             }
+
+            // Update dropped items
+            if (droppedItemManager != null) {
+                droppedItemManager.update(scene.getCamera().getPosition(), (float) gameEng.getDeltaTime());
+
+                // Check for item pickup
+                List<DroppedItem> pickedUp = droppedItemManager.checkPickup(scene.getCamera().getPosition());
+                for (DroppedItem item : pickedUp) {
+                    inventory.addItem(item.getItem(), item.getCount());
+                }
+            }
+
+            // Check for death
+            if (playerHealth <= 0) {
+                handlePlayerDeath(scene);
+            }
         }
+    }
+
+    private void updatePlayerStats() {
+        long currentTime = System.currentTimeMillis();
+
+        // Hunger depletion (1 hunger point every 4 seconds)
+        if (currentTime - lastHungerDepletion >= 4000) {
+            playerHunger = Math.max(0, playerHunger - 1);
+            lastHungerDepletion = currentTime;
+        }
+
+        // Health regeneration when hunger is full (1 HP every 0.5 seconds)
+        if (playerHunger >= maxPlayerHunger && playerHealth < maxPlayerHealth) {
+            if (currentTime - lastHealthRegeneration >= 500) {
+                playerHealth = Math.min(maxPlayerHealth, playerHealth + 1);
+                lastHealthRegeneration = currentTime;
+            }
+        }
+
+        // Damage from low hunger (1 HP every 4 seconds when hunger < 6)
+        if (playerHunger < 6) {
+            if (currentTime - lastHungerDamage >= 4000) {
+                playerHealth = Math.max(0, playerHealth - 1);
+                lastHungerDamage = currentTime;
+            }
+        }
+    }
+
+    private void handlePlayerDeath(Scene scene) {
+        // Reset player stats
+        playerHealth = maxPlayerHealth;
+        playerHunger = maxPlayerHunger;
+
+        // Teleport player to respawn position
+        Camera camera = scene.getCamera();
+        camera.setPosition(respawnPosition.x, respawnPosition.y, respawnPosition.z);
+    }
+
+    public void damagePlayer(float damage) {
+        playerHealth = Math.max(0, playerHealth - damage);
     }
 
     private void logInfo(Scene scene) {
@@ -1541,6 +1899,7 @@ public class Main implements IAppLogic, IGuiInstance {
         Main.windowName = windowName;
     }
 
+
     private byte getBlockIdFromItem(Item item) {
         if (item.equals(Items.GRASS_BLOCK)) return Blocks.GRASS.getId();
         if (item.equals(Items.DIRT)) return Blocks.DIRT.getId();
@@ -1550,6 +1909,18 @@ public class Main implements IAppLogic, IGuiInstance {
         if (item.equals(Items.OAK_LEAVES)) return Blocks.OAK_LEAVES.getId();
         if (item.equals(Items.CRAFTING_TABLE)) return Blocks.CRAFTING_TABLE.getId();
         return Blocks.AIR.getId();
+    }
+
+    private Block getBlockFromId(byte blockId) {
+        if (blockId == Blocks.GRASS.getId()) return Blocks.GRASS;
+        if (blockId == Blocks.DIRT.getId()) return Blocks.DIRT;
+        if (blockId == Blocks.STONE.getId()) return Blocks.STONE;
+        if (blockId == Blocks.SAND.getId()) return Blocks.SAND;
+        if (blockId == Blocks.OAK_LOG.getId()) return Blocks.OAK_LOG;
+        if (blockId == Blocks.OAK_LEAVES.getId()) return Blocks.OAK_LEAVES;
+        if (blockId == Blocks.CRAFTING_TABLE.getId()) return Blocks.CRAFTING_TABLE;
+        if (blockId == Blocks.WATER.getId()) return Blocks.WATER;
+        return Blocks.AIR;
     }
 
     private Item getItemFromBlock(byte blockId) {

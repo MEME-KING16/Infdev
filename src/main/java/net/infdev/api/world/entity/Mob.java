@@ -60,11 +60,22 @@ public abstract class Mob extends net.infdev.api.world.entity.Entity {
     public abstract void updateAI(Camera camera, Map<String, Chunk> loadedChunks, long deltaTime);
 
     public void applyGravity(float deltaTime) {
-        velocity.y -= 9.8f * deltaTime;
+        // Simple ground check - stop falling at y = 0 or below ground level
+        if (position.y > 1.0f) {
+            velocity.y -= 9.8f * deltaTime;
+        } else {
+            position.y = Math.max(1.0f, position.y);
+            velocity.y = 0;
+        }
     }
 
     public void move(float deltaTime) {
         position.add(velocity.x * deltaTime, velocity.y * deltaTime, velocity.z * deltaTime);
+        // Clamp to ground level
+        if (position.y < 1.0f) {
+            position.y = 1.0f;
+            velocity.y = 0;
+        }
     }
 
     public void damage(float amount) {
@@ -101,4 +112,20 @@ public abstract class Mob extends net.infdev.api.world.entity.Entity {
 
     public String getModelId() { return modelId; }
     public void setModelId(String modelId) { this.modelId = modelId; }
+
+    // Method to be overridden by subclasses to define loot drops
+    public abstract java.util.List<LootDrop> getLootDrops();
+
+    // Helper class to define loot drops
+    public static class LootDrop {
+        public final net.infdev.api.world.item.Item item;
+        public final int minCount;
+        public final int maxCount;
+
+        public LootDrop(net.infdev.api.world.item.Item item, int minCount, int maxCount) {
+            this.item = item;
+            this.minCount = minCount;
+            this.maxCount = maxCount;
+        }
+    }
 }

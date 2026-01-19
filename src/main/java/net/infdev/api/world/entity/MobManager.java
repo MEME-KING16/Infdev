@@ -15,16 +15,17 @@ import java.util.Map;
 import java.util.Random;
 
 public class MobManager {
-    private static final int MAX_MOBS = 50;
+    private static final int MAX_MOBS = 15;
     private static final int MIN_SPAWN_DISTANCE = 10;
     private static final int MAX_SPAWN_DISTANCE = 30;
-    private static final long SPAWN_INTERVAL = 5000; // 5 seconds
+    private static final long SPAWN_INTERVAL = 10000; // 10 seconds
     private static final int SEA_LEVEL = 32;
 
     private final List<Mob> mobs;
     private final Random random;
     private long lastSpawnTime;
     private Scene scene;
+    private DroppedItemManager droppedItemManager;
 
     public MobManager() {
         this.mobs = new ArrayList<>();
@@ -37,14 +38,18 @@ public class MobManager {
         createMobModels();
     }
 
-    private void createMobModels() {
-        // Create simple cube models for mobs
-        createMobModel("pig_model", 0.8f, 0.6f, 0.8f, 1.0f, 0.7f, 0.7f);
-        createMobModel("cow_model", 0.9f, 0.7f, 0.9f, 0.6f, 0.4f, 0.2f);
-        createMobModel("zombie_model", 0.6f, 0.9f, 0.6f, 0.3f, 0.7f, 0.3f);
+    public void setDroppedItemManager(DroppedItemManager droppedItemManager) {
+        this.droppedItemManager = droppedItemManager;
     }
 
-    private void createMobModel(String modelId, float w, float h, float d, float r, float g, float b) {
+    private void createMobModels() {
+        // Create simple cube models for mobs
+        createMobModel("pig_model", 0.8f, 0.6f, 0.8f, 1.0f, 0.7f, 0.7f, "models/mob/pig.png");
+        createMobModel("cow_model", 0.9f, 0.7f, 0.9f, 0.6f, 0.4f, 0.2f, "models/mob/cow.png");
+        createMobModel("zombie_model", 0.6f, 0.9f, 0.6f, 0.3f, 0.7f, 0.3f, "models/mob/zombie.png");
+    }
+
+    private void createMobModel(String modelId, float w, float h, float d, float r, float g, float b, String texturePath) {
         // Create box mesh data
         float hw = w / 2, hh = h / 2, hd = d / 2;
 
@@ -87,6 +92,7 @@ public class MobManager {
         Mesh mesh = new Mesh(positions, normals, texCoords, indices);
 
         Material material = new Material();
+        material.setTexturePath(texturePath);
         material.setDiffuseColor(new Vector4f(r, g, b, 1.0f));
         material.setAmbientColor(new Vector4f(r * 0.3f, g * 0.3f, b * 0.3f, 1.0f));
         material.getMeshList().add(mesh);
@@ -105,8 +111,9 @@ public class MobManager {
         for (int i = mobs.size() - 1; i >= 0; i--) {
             Mob mob = mobs.get(i);
 
-            // Remove dead mobs
+            // Remove dead mobs and drop loot
             if (mob.isDead()) {
+                dropLoot(mob);
                 removeMob(mob);
                 mobs.remove(i);
                 continue;
@@ -213,6 +220,18 @@ public class MobManager {
     private void removeMob(Mob mob) {
         if (scene != null && mob.getRenderEntity() != null) {
             scene.removeEntity(mob.getRenderEntity());
+        }
+    }
+
+    private void dropLoot(Mob mob) {
+        if (droppedItemManager == null) return;
+
+        List<Mob.LootDrop> lootDrops = mob.getLootDrops();
+        for (Mob.LootDrop drop : lootDrops) {
+            int count = drop.minCount + random.nextInt(drop.maxCount - drop.minCount + 1);
+            if (count > 0) {
+                droppedItemManager.spawnItem(mob.getPosition(), drop.item, count);
+            }
         }
     }
 

@@ -1,16 +1,22 @@
 package net.infdev.api.world.entity;
 
+import net.infdev.Main;
 import net.infdev.engine.scene.Camera;
+import net.infdev.item.Items;
 import net.infdev.util.Chunk;
 import net.infdev.util.Pathfinding;
 import org.joml.Vector3f;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class Zombie extends Mob {
     private static final float DETECTION_RANGE = 15.0f;
     private static final float ATTACK_RANGE = 2.0f;
+    private static final float ATTACK_DAMAGE = 3.0f;
+    private static final long ATTACK_COOLDOWN = 1000; // 1 second between attacks
     private Pathfinding pathfinder;
+    private long lastAttackTime = 0;
 
     public Zombie(Vector3f position) {
         super("Zombie", position, 20.0f, 3.5f);
@@ -45,7 +51,15 @@ public class Zombie extends Mob {
                     // In attack range, stop moving
                     velocity.x = 0;
                     velocity.z = 0;
-                    // TODO: Deal damage to player
+
+                    // Deal damage to player
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastAttackTime >= ATTACK_COOLDOWN) {
+                        if (Main.main != null) {
+                            Main.main.damagePlayer(ATTACK_DAMAGE);
+                        }
+                        lastAttackTime = currentTime;
+                    }
                 } else {
                     // Move towards player
                     Vector3f direction = new Vector3f(toPlayer);
@@ -61,5 +75,12 @@ public class Zombie extends Mob {
     @Override
     public void update(float deltaTime, Vector3f playerPosition, Map<String, ?> chunks) {
         // This version is not used anymore, but kept for compatibility
+    }
+
+    @Override
+    public List<LootDrop> getLootDrops() {
+        List<LootDrop> drops = new ArrayList<>();
+        drops.add(new LootDrop(Items.ROTTEN_FLESH, 0, 2));
+        return drops;
     }
 }

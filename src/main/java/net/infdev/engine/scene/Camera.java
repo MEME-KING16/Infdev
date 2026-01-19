@@ -2,6 +2,8 @@ package net.infdev.engine.scene;
 
 import org.joml.*;
 
+import java.lang.Math;
+
 
 public class Camera {
 
@@ -23,6 +25,8 @@ public class Camera {
 
     public void addRotation(float x, float y) {
         rotation.add(x, y);
+        // Clamp pitch to prevent camera flipping
+        rotation.x = Math.max(-1.55f, Math.min(1.55f, rotation.x));
         recalculate();
     }
 

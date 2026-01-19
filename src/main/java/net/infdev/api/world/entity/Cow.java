@@ -1,8 +1,11 @@
 package net.infdev.api.world.entity;
 
 import net.infdev.engine.scene.Camera;
+import net.infdev.item.Items;
 import net.infdev.util.Chunk;
 import org.joml.Vector3f;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class Cow extends Mob {
@@ -64,5 +67,12 @@ public class Cow extends Mob {
             position.y,
             position.z + (float)Math.sin(angle) * distance
         );
+    }
+
+    @Override
+    public List<LootDrop> getLootDrops() {
+        List<LootDrop> drops = new ArrayList<>();
+        drops.add(new LootDrop(Items.COOKED_BEEF, 1, 3));
+        return drops;
     }
 }

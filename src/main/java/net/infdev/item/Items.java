@@ -25,8 +25,21 @@ public class Items {
 	public static final Item WOODEN_AXE = new Item("Wooden Axe");
 	public static final Item WOODEN_SHOVEL = new Item("Wooden Shovel");
 	public static final Item WOODEN_SWORD = new Item("Wooden Sword");
+	public static final Item COOKED_PORKCHOP = new Item("Cooked Porkchop", true, 8);
+	public static final Item COOKED_BEEF = new Item("Cooked Beef", true, 8);
+	public static final Item ROTTEN_FLESH = new Item("Rotten Flesh", true, 4);
 
 	public static void registerItems(Scene scene) {
+		// Set tool properties
+		WOODEN_PICKAXE.setToolType("pickaxe");
+		WOODEN_PICKAXE.setMiningSpeedMultiplier(2.0f);
+
+		WOODEN_AXE.setToolType("axe");
+		WOODEN_AXE.setMiningSpeedMultiplier(2.0f);
+
+		WOODEN_SHOVEL.setToolType("shovel");
+		WOODEN_SHOVEL.setMiningSpeedMultiplier(2.0f);
+
 		// Load item textures (reusing block textures for block items)
 		scene.getTextureCache().createTexture("models/block/stone.png");
 		scene.getTextureCache().createTexture("models/block/dirt.png");
@@ -42,6 +55,9 @@ public class Items {
 		scene.getTextureCache().createTexture("models/item/wooden_axe.png");
 		scene.getTextureCache().createTexture("models/item/wooden_shovel.png");
 		scene.getTextureCache().createTexture("models/item/wooden_sword.png");
+		scene.getTextureCache().createTexture("models/item/cooked_porkchop.png");
+		scene.getTextureCache().createTexture("models/item/cooked_beef.png");
+		scene.getTextureCache().createTexture("models/item/rotten_flesh.png");
 
 		// Assign texture paths to items
 		AIR.setTexturePath(null);
@@ -59,6 +75,9 @@ public class Items {
 		WOODEN_AXE.setTexturePath("models/item/wooden_axe.png");
 		WOODEN_SHOVEL.setTexturePath("models/item/wooden_shovel.png");
 		WOODEN_SWORD.setTexturePath("models/item/wooden_sword.png");
+		COOKED_PORKCHOP.setTexturePath("models/item/cooked_porkchop.png");
+		COOKED_BEEF.setTexturePath("models/item/cooked_beef.png");
+		ROTTEN_FLESH.setTexturePath("models/item/rotten_flesh.png");
 
 		Registries.ITEM.register("infdev", "air", AIR);
 		Registries.ITEM.register("infdev", "stone", STONE);
@@ -75,6 +94,9 @@ public class Items {
 		Registries.ITEM.register("infdev", "wooden_axe", WOODEN_AXE);
 		Registries.ITEM.register("infdev", "wooden_shovel", WOODEN_SHOVEL);
 		Registries.ITEM.register("infdev", "wooden_sword", WOODEN_SWORD);
+		Registries.ITEM.register("infdev", "cooked_porkchop", COOKED_PORKCHOP);
+		Registries.ITEM.register("infdev", "cooked_beef", COOKED_BEEF);
+		Registries.ITEM.register("infdev", "rotten_flesh", ROTTEN_FLESH);
 	}
 
 	private static void setModelTexture(Model model, String texturePath) {

@@ -10,21 +10,31 @@ public class Physics {
     private float gravity = -0.025F;
     private float velocityY = 0f;
     private boolean isGrounded = false;
-    
-    private static final float PLAYER_WIDTH = 0.05f;
+    private float fallStartY = 0f;
+    private boolean wasFalling = false;
+
+    private static final float PLAYER_WIDTH = 0.3f;
     private static final float PLAYER_HEIGHT = 1.8f;
+    private static final float SAFE_FALL_DISTANCE = 3.0f; // No damage below this
     
     public static boolean checkCollision(Vector3f pos) {
-        int minX = (int)Math.floor(pos.x - PLAYER_WIDTH);
-        int maxX = (int)Math.ceil(pos.x + PLAYER_WIDTH);
-        int minY = (int)Math.floor(pos.y - PLAYER_HEIGHT);
-        int maxY = (int)Math.ceil(pos.y);
-        int minZ = (int)Math.floor(pos.z - PLAYER_WIDTH);
-        int maxZ = (int)Math.ceil(pos.z + PLAYER_WIDTH);
-        
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
+        float minX = pos.x - PLAYER_WIDTH;
+        float maxX = pos.x + PLAYER_WIDTH;
+        float minY = pos.y - PLAYER_HEIGHT;
+        float maxY = pos.y;
+        float minZ = pos.z - PLAYER_WIDTH;
+        float maxZ = pos.z + PLAYER_WIDTH;
+
+        int blockMinX = (int)Math.floor(minX);
+        int blockMaxX = (int)Math.floor(maxX);
+        int blockMinY = (int)Math.floor(minY);
+        int blockMaxY = (int)Math.floor(maxY);
+        int blockMinZ = (int)Math.floor(minZ);
+        int blockMaxZ = (int)Math.floor(maxZ);
+
+        for (int x = blockMinX; x <= blockMaxX; x++) {
+            for (int y = blockMinY; y <= blockMaxY; y++) {
+                for (int z = blockMinZ; z <= blockMaxZ; z++) {
                     if (isBlockSolid(x, y, z)) {
                         return true;
                     }
@@ -75,27 +85,41 @@ public class Physics {
     public void applyPhysics(float delta, Camera camera) {
         if (isGrounded && !checkGroundBelow(camera.getPosition())) {
             isGrounded = false;
+            fallStartY = camera.getPosition().y;
+            wasFalling = true;
         }
-        
+
         if (!isGrounded) {
             velocityY += gravity;
         }
-        
-        float dy = velocityY;
-        
-        Vector3f oldPos = new Vector3f(camera.getPosition());
-        
-        if (dy > 0) {
-            camera.moveUp(dy);
-        } else if (dy < 0) {
-            camera.moveDown(-dy);
-        }
 
-        // ground collision check
-        if (Physics.checkCollision(camera.getPosition())) {
-            camera.getPosition().set(oldPos);
+        float dy = velocityY;
+        Vector3f pos = camera.getPosition();
+
+        // Apply Y movement
+        float oldY = pos.y;
+        pos.y += dy;
+
+        // Check collision after Y movement
+        if (Physics.checkCollision(pos)) {
+            pos.y = oldY;
+
+            // Calculate fall damage if landing
+            if (dy < 0 && wasFalling) {
+                float fallDistance = fallStartY - pos.y;
+                if (fallDistance > SAFE_FALL_DISTANCE) {
+                    float damage = (fallDistance - SAFE_FALL_DISTANCE);
+                    if (Main.main != null) {
+                        Main.main.damagePlayer(damage);
+                    }
+                }
+                wasFalling = false;
+            }
+
             resetVelocity();
-            isGrounded = true;
+            if (dy < 0) {
+                isGrounded = true;
+            }
         } else {
             if (dy < 0) {
                 isGrounded = false;

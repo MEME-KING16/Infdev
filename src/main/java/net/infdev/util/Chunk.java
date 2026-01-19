@@ -179,13 +179,13 @@ public class Chunk {
             for (Entity entity : oldEntities) {
                 scene.removeEntity(entity);
             }
+            // Add new models first (before entities, since addEntity validates model exists)
+            for (Model model : models) {
+                scene.addModel(model);
+            }
             // Add new entities
             for (Entity entity : entities) {
                 scene.addEntity(entity);
-            }
-            // Add new models
-            for (Model model : models) {
-                scene.addModel(model);
             }
         }
     }
