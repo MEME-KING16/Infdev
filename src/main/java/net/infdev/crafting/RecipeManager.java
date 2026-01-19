@@ -126,6 +126,32 @@ public class RecipeManager {
             Items.WOODEN_SWORD,
             1
         ));
+
+        // Custom quotes
+        registerRecipe(CraftingRecipe.shapeless(
+            new Item[]{Items.OAK_PLANKS, Items.OAK_PLANKS, Items.STICKS},
+            Items.KEY_CONSISTENCY,
+            1
+        ));
+
+        registerRecipe(CraftingRecipe.shapeless(
+            new Item[]{Items.STONE, Items.ROTTEN_FLESH},
+            Items.DONT_SUFFER,
+            1
+        ));
+
+        registerRecipe(CraftingRecipe.shapeless(
+            new Item[]{Items.OAK_PLANKS, Items.OAK_PLANKS, Items.OAK_PLANKS},
+            Items.CLASS_BLUEPRINT,
+            1
+        ));
+
+        // BMW 1000 RR from all three quotes
+        registerRecipe(CraftingRecipe.shapeless(
+            new Item[]{Items.KEY_CONSISTENCY, Items.DONT_SUFFER, Items.CLASS_BLUEPRINT},
+            Items.BMW_1000_RR,
+            1
+        ));
     }
 
     /**

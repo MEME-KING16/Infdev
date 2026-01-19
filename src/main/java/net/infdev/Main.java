@@ -78,7 +78,7 @@ public class Main implements IAppLogic, IGuiInstance {
     private long lastMoveTime = 0;
     private static final long UNLOAD_MOVE_COOLDOWN_MS = 1000;
     public static Main main;
-    public static String windowName = "Infdev 0.1.0-alpha.1";
+    public static String windowName = "Lauder Craft 0.1.0-alpha.1";
     private Window window;
     private Inventory inventory = new Inventory();
     private boolean inventoryOpen = false;
@@ -107,6 +107,8 @@ public class Main implements IAppLogic, IGuiInstance {
     private Vector3f respawnPosition = new Vector3f(0, 90, 0);
     private long lastJumpTime = 0;
     private static final long JUMP_COOLDOWN_MS = 350;
+    private boolean ridingBike = false;
+    private static final float BIKE_SPEED_MULTIPLIER = 8.0f;
 
     // Block breaking progress tracking
     private Vector3i targetBlock = null;
@@ -184,13 +186,6 @@ public class Main implements IAppLogic, IGuiInstance {
                 craftingGrid3x3[i][j] = new ItemStack();
             }
         }
-
-        inventory.addItem(Items.GRASS_BLOCK, 64);
-        inventory.addItem(Items.DIRT, 64);
-        inventory.addItem(Items.STONE, 64);
-        inventory.addItem(Items.OAK_LOG, 64);
-        inventory.addItem(Items.COOKED_PORKCHOP, 16);
-        inventory.addItem(Items.COOKED_BEEF, 16);
 
         // Don't capture cursor in menu
         if (currentState == GameState.PLAYING && !inventoryOpen) {
@@ -927,7 +922,7 @@ public class Main implements IAppLogic, IGuiInstance {
         
         ImGui.setCursorPos(0, startY);
         
-        String title = "INFDEV";
+        String title = "LAUDER CRAFT";
         ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
         float titleWidth = ImGui.calcTextSize(title).x * 2;
         ImGui.setCursorPos((windowWidth - titleWidth) / 2, startY);
@@ -995,7 +990,7 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.popStyleColor(5);
         ImGui.popStyleVar(2);
         
-        String version = "Infdev 0.1.0-alpha.1";
+        String version = "Lauder Craft 0.1.0-alpha.1";
         float versionWidth = ImGui.calcTextSize(version).x;
         ImGui.setCursorPos(windowWidth - versionWidth - 10, windowHeight - 30);
         ImGui.pushStyleColor(ImGuiCol.Text, 0.5f, 0.5f, 0.5f, 1.0f);
@@ -1049,7 +1044,7 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.setWindowFontScale(1.0f);
 
         ImGui.setCursorPos(centerX, centerY + 60);
-        ImGui.text("INFDEV - Minecraft Clone");
+        ImGui.text("Lauder Craft");
 
         ImGui.setCursorPos(centerX, centerY + 90);
         ImGui.text("Version: 0.1.0-alpha.1");
@@ -1059,22 +1054,49 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.setCursorPos(centerX + 20, centerY + 145);
         ImGui.text("WASD - Move");
         ImGui.setCursorPos(centerX + 20, centerY + 165);
-        ImGui.text("Space - Jump");
+        ImGui.text("Space - Jump (cooldown, must be on ground)");
         ImGui.setCursorPos(centerX + 20, centerY + 185);
-        ImGui.text("E - Inventory");
+        ImGui.text("E - Inventory / crafting");
         ImGui.setCursorPos(centerX + 20, centerY + 205);
-        ImGui.text("Left Click - Break Block");
+        ImGui.text("Left Click - Break block / attack mobs");
         ImGui.setCursorPos(centerX + 20, centerY + 225);
-        ImGui.text("Right Click - Place Block/Use block/item");
+        ImGui.text("Right Click - Place block / use item");
         ImGui.setCursorPos(centerX + 20, centerY + 245);
-        ImGui.text("1-9 - Select Hotbar Slot");
+        ImGui.text("1-9 - Select hotbar slot");
+
+        ImGui.setCursorPos(centerX, centerY + 280);
+        ImGui.text("How to Play:");
+        ImGui.setCursorPos(centerX + 20, centerY + 305);
+        ImGui.text("- Crafting: use a crafting table for 3x3 recipes; 2x2 in inventory works too.");
+        ImGui.setCursorPos(centerX + 20, centerY + 325);
+        ImGui.text("- Early recipes: log -> planks; planks + planks -> sticks; 2x2 planks -> crafting table.");
+        ImGui.setCursorPos(centerX + 20, centerY + 345);
+        ImGui.text("- Tools: wood pick/axe/shovel/sword are in the 3x3 recipes list.");
+        ImGui.setCursorPos(centerX + 20, centerY + 365);
+        ImGui.text("- Food: right click with food to eat when hungry; hunger refills health when full.");
+        ImGui.setCursorPos(centerX + 20, centerY + 385);
+        ImGui.text("- Mobs: left click to damage; stay fed to survive fights.");
+        ImGui.setCursorPos(centerX + 20, centerY + 405);
+        ImGui.text("- Drops: walk near dropped items to auto-pickup (2-block radius).");
+        ImGui.setCursorPos(centerX + 20, centerY + 425);
+        ImGui.text("- Bike: craft the three quote items, combine them to get BMW 1000 RR; right click to ride.");
+        ImGui.setCursorPos(centerX + 20, centerY + 445);
+        ImGui.text("- Death: you’ll see the death screen; hit Respawn to return to your spawn point.");
+        ImGui.setCursorPos(centerX + 20, centerY + 465);
+        ImGui.text("- Quotes: 2 planks + 1 stick -> \"The key to succsess is consistancy\" (shapeless).");
+        ImGui.setCursorPos(centerX + 20, centerY + 485);
+        ImGui.text("- Quotes: stone + rotten flesh -> \"dont suffer in silence\" (shapeless).");
+        ImGui.setCursorPos(centerX + 20, centerY + 505);
+        ImGui.text("- Quotes: 3 planks -> \"a class is a blueprint of an object\" (shapeless).");
+        ImGui.setCursorPos(centerX + 20, centerY + 525);
+        ImGui.text("- BMW: craft all three quotes together (shapeless) to get BMW 1000 RR.");
 
         ImGui.popStyleColor();
 
         float buttonWidth = 200;
         float buttonHeight = 40;
         float buttonX = (windowWidth - buttonWidth) / 2;
-        float buttonY = centerY + contentHeight - 60;
+        float buttonY = centerY + contentHeight + 120;
 
         ImGui.setCursorPos(buttonX, buttonY);
 
@@ -1596,7 +1618,8 @@ public class Main implements IAppLogic, IGuiInstance {
             return;
         }
         
-        float move = diffTimeMillis * MOVEMENT_SPEED;
+        float speedMultiplier = ridingBike ? BIKE_SPEED_MULTIPLIER : 1.0f;
+        float move = diffTimeMillis * MOVEMENT_SPEED * speedMultiplier;
         Camera camera = scene.getCamera();
         Vector3f pos = camera.getPosition();
 
@@ -1667,6 +1690,13 @@ public class Main implements IAppLogic, IGuiInstance {
 
             // Check if holding food item
             ItemStack selected = inventory.getSelectedItem();
+            if (!selected.isEmpty() && selected.getItem().equals(Items.BMW_1000_RR)) {
+                ridingBike = !ridingBike;
+                if (ridingBike) {
+                    scene.getPhysics().resetVelocity();
+                }
+                return;
+            }
             if (!selected.isEmpty() && selected.getItem().isFood()) {
                 // Consume food
                 if (playerHunger < maxPlayerHunger) {
@@ -1935,6 +1965,7 @@ public class Main implements IAppLogic, IGuiInstance {
 
     private void handlePlayerDeath(Scene scene) {
         currentState = GameState.DEATH;
+        ridingBike = false;
         releaseMouse();
         scene.getPhysics().resetVelocity();
     }

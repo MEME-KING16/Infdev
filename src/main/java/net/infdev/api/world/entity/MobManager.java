@@ -4,6 +4,7 @@ import net.infdev.block.Blocks;
 import net.infdev.engine.graph.*;
 import net.infdev.engine.scene.Camera;
 import net.infdev.engine.scene.Entity;
+import net.infdev.engine.scene.ModelLoader;
 import net.infdev.engine.scene.Scene;
 import net.infdev.util.Chunk;
 import org.joml.Vector3f;
@@ -43,65 +44,31 @@ public class MobManager {
     }
 
     private void createMobModels() {
-        // Create simple cube models for mobs
-        createMobModel("pig_model", 0.8f, 0.6f, 0.8f, 1.0f, 0.7f, 0.7f, "models/mob/pig.png");
-        createMobModel("cow_model", 0.9f, 0.7f, 0.9f, 0.6f, 0.4f, 0.2f, "models/mob/cow.png");
-        createMobModel("zombie_model", 0.6f, 0.9f, 0.6f, 0.3f, 0.7f, 0.3f, "models/mob/zombie.png");
+        // Pre-register textures in cache
+        scene.getTextureCache().addTexture("models/mob/pig.png");
+        scene.getTextureCache().addTexture("models/mob/cow.png");
+        scene.getTextureCache().addTexture("models/mob/zombie.png");
+
+        // Load OBJ models using ModelLoader
+        Model pigModel = ModelLoader.loadModel("pig_model", "models/mob/pig.obj", scene.getTextureCache());
+        Model cowModel = ModelLoader.loadModel("cow_model", "models/mob/cow.obj", scene.getTextureCache());
+        Model zombieModel = ModelLoader.loadModel("zombie_model", "models/mob/zombie.obj", scene.getTextureCache());
+
+        // Apply textures to all materials in each model
+        setModelTexture(pigModel, "models/mob/pig.png");
+        setModelTexture(cowModel, "models/mob/cow.png");
+        setModelTexture(zombieModel, "models/mob/zombie.png");
+
+        // Register models with scene
+        scene.addModel(pigModel);
+        scene.addModel(cowModel);
+        scene.addModel(zombieModel);
     }
 
-    private void createMobModel(String modelId, float w, float h, float d, float r, float g, float b, String texturePath) {
-        // Create box mesh data
-        float hw = w / 2, hh = h / 2, hd = d / 2;
-
-        float[] positions = {
-            // Front, Back, Top, Bottom, Right, Left faces (all 6)
-            -hw,-hh,hd, hw,-hh,hd, hw,hh,hd, -hw,hh,hd,
-            hw,-hh,-hd, -hw,-hh,-hd, -hw,hh,-hd, hw,hh,-hd,
-            -hw,hh,hd, hw,hh,hd, hw,hh,-hd, -hw,hh,-hd,
-            -hw,-hh,-hd, hw,-hh,-hd, hw,-hh,hd, -hw,-hh,hd,
-            hw,-hh,hd, hw,-hh,-hd, hw,hh,-hd, hw,hh,hd,
-            -hw,-hh,-hd, -hw,-hh,hd, -hw,hh,hd, -hw,hh,-hd
-        };
-
-        float[] normals = new float[72]; // 6 faces * 4 vertices * 3 components
-        float[] texCoords = new float[48]; // 6 faces * 4 vertices * 2 components
-
-        // Fill normals and texcoords
-        for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 4; j++) {
-                int idx = i * 4 + j;
-                if (i == 0) { normals[idx*3] = 0; normals[idx*3+1] = 0; normals[idx*3+2] = 1; }
-                else if (i == 1) { normals[idx*3] = 0; normals[idx*3+1] = 0; normals[idx*3+2] = -1; }
-                else if (i == 2) { normals[idx*3] = 0; normals[idx*3+1] = 1; normals[idx*3+2] = 0; }
-                else if (i == 3) { normals[idx*3] = 0; normals[idx*3+1] = -1; normals[idx*3+2] = 0; }
-                else if (i == 4) { normals[idx*3] = 1; normals[idx*3+1] = 0; normals[idx*3+2] = 0; }
-                else { normals[idx*3] = -1; normals[idx*3+1] = 0; normals[idx*3+2] = 0; }
-
-                texCoords[idx*2] = (j == 1 || j == 2) ? 1.0f : 0.0f;
-                texCoords[idx*2+1] = (j >= 2) ? 1.0f : 0.0f;
-            }
+    private void setModelTexture(Model model, String texturePath) {
+        for (Material material : model.getMaterialList()) {
+            material.setTexturePath(texturePath);
         }
-
-        int[] indices = new int[36];
-        for (int i = 0; i < 6; i++) {
-            int base = i * 4;
-            indices[i*6] = base; indices[i*6+1] = base+1; indices[i*6+2] = base+2;
-            indices[i*6+3] = base; indices[i*6+4] = base+2; indices[i*6+5] = base+3;
-        }
-
-        Mesh mesh = new Mesh(positions, normals, texCoords, indices);
-
-        Material material = new Material();
-        material.setTexturePath(texturePath);
-        material.setDiffuseColor(new Vector4f(r, g, b, 1.0f));
-        material.setAmbientColor(new Vector4f(r * 0.3f, g * 0.3f, b * 0.3f, 1.0f));
-        material.getMeshList().add(mesh);
-
-        List<Material> materials = new ArrayList<>();
-        materials.add(material);
-
-        Model model = new Model(modelId, materials);
-        scene.addModel(model);
     }
 
     public void update(Camera camera, Map<String, Chunk> loadedChunks, long deltaTime) {

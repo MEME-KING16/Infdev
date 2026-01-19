@@ -28,6 +28,10 @@ public class Items {
 	public static final Item COOKED_PORKCHOP = new Item("Cooked Porkchop", true, 8);
 	public static final Item COOKED_BEEF = new Item("Cooked Beef", true, 8);
 	public static final Item ROTTEN_FLESH = new Item("Rotten Flesh", true, 4);
+	public static final Item KEY_CONSISTENCY = new Item("The key to succsess is consistancy");
+	public static final Item DONT_SUFFER = new Item("dont suffer in silence");
+	public static final Item CLASS_BLUEPRINT = new Item("a class is a blueprint of an object");
+	public static final Item BMW_1000_RR = new Item("BMW 1000 RR");
 
 	public static void registerItems(Scene scene) {
 		// Set tool properties
@@ -58,6 +62,7 @@ public class Items {
 		scene.getTextureCache().createTexture("models/item/cooked_porkchop.png");
 		scene.getTextureCache().createTexture("models/item/cooked_beef.png");
 		scene.getTextureCache().createTexture("models/item/rotten_flesh.png");
+		scene.getTextureCache().createTexture("models/block/stone.png");
 
 		// Assign texture paths to items
 		AIR.setTexturePath(null);
@@ -78,6 +83,10 @@ public class Items {
 		COOKED_PORKCHOP.setTexturePath("models/item/cooked_porkchop.png");
 		COOKED_BEEF.setTexturePath("models/item/cooked_beef.png");
 		ROTTEN_FLESH.setTexturePath("models/item/rotten_flesh.png");
+		KEY_CONSISTENCY.setTexturePath("models/block/stone.png");
+		DONT_SUFFER.setTexturePath("models/block/stone.png");
+		CLASS_BLUEPRINT.setTexturePath("models/block/stone.png");
+		BMW_1000_RR.setTexturePath("models/block/stone.png");
 
 		Registries.ITEM.register("infdev", "air", AIR);
 		Registries.ITEM.register("infdev", "stone", STONE);
@@ -97,6 +106,10 @@ public class Items {
 		Registries.ITEM.register("infdev", "cooked_porkchop", COOKED_PORKCHOP);
 		Registries.ITEM.register("infdev", "cooked_beef", COOKED_BEEF);
 		Registries.ITEM.register("infdev", "rotten_flesh", ROTTEN_FLESH);
+		Registries.ITEM.register("infdev", "key_consistency", KEY_CONSISTENCY);
+		Registries.ITEM.register("infdev", "dont_suffer", DONT_SUFFER);
+		Registries.ITEM.register("infdev", "class_blueprint", CLASS_BLUEPRINT);
+		Registries.ITEM.register("infdev", "bmw_1000_rr", BMW_1000_RR);
 	}
 
 	private static void setModelTexture(Model model, String texturePath) {
