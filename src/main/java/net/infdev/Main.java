@@ -1297,7 +1297,7 @@ public class Main implements IAppLogic, IGuiInstance {
         captureMouse();
         boolean loadedPlayer = applySavedPlayerState();
         if (!loadedPlayer) {
-            giveStarterItems();
+            //giveStarterItems();
             setInitialSpawn(scene.getCamera());
         }
         applySavedDroppedItems();
