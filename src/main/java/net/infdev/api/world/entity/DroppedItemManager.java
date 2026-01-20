@@ -149,4 +149,12 @@ public class DroppedItemManager {
     public List<DroppedItem> getDroppedItems() {
         return droppedItems;
     }
+
+    public void clearAll() {
+        cleanup();
+    }
+
+    public void restoreItem(Vector3f position, Item item, int count) {
+        spawnItem(position, item, count);
+    }
 }
