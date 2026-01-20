@@ -517,4 +517,32 @@ public class Chunk {
             inScene = false;
         }
     }
+
+    public byte[] serializeBlocks() {
+        byte[] data = new byte[CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE];
+        int idx = 0;
+        for (int x = 0; x < CHUNK_SIZE; x++) {
+            for (int y = 0; y < CHUNK_HEIGHT; y++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    data[idx++] = blocks[x][y][z];
+                }
+            }
+        }
+        return data;
+    }
+
+    public void loadBlocks(byte[] data) {
+        int expected = CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE;
+        if (data == null || data.length < expected) {
+            return;
+        }
+        int idx = 0;
+        for (int x = 0; x < CHUNK_SIZE; x++) {
+            for (int y = 0; y < CHUNK_HEIGHT; y++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    blocks[x][y][z] = data[idx++];
+                }
+            }
+        }
+    }
 }

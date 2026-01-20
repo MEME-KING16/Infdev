@@ -5,6 +5,7 @@ import imgui.flag.ImGuiCol;
 import imgui.flag.ImGuiCond;
 import imgui.flag.ImGuiStyleVar;
 import imgui.flag.ImGuiWindowFlags;
+import imgui.type.ImString;
 import net.infdev.api.world.item.Item;
 import net.infdev.api.world.item.ItemStack;
 import net.infdev.api.world.block.Block;
@@ -28,6 +29,7 @@ import net.infdev.api.world.entity.MobManager;
 import net.infdev.api.world.entity.DroppedItemManager;
 import net.infdev.api.world.entity.DroppedItem;
 import net.infdev.crafting.RecipeManager;
+import net.infdev.world.WorldSaveManager;
 
 import org.joml.*;
 
@@ -46,6 +48,7 @@ import java.nio.file.Paths;
 public class Main implements IAppLogic, IGuiInstance {
     enum GameState {
         MENU,
+        WORLD_SELECT,
         PLAYING,
         PAUSED,
         MODSLIST,
@@ -72,6 +75,14 @@ public class Main implements IAppLogic, IGuiInstance {
     private final Map<String, Chunk> pendingRender = new HashMap<>();
     private final Map<String, Long> pendingSince = new HashMap<>();
     private static final long PENDING_RENDER_TIMEOUT_MS = 2500;
+    private final Set<String> modifiedChunksForSave = ConcurrentHashMap.newKeySet();
+    private static final long AUTOSAVE_INTERVAL_MS = 5000;
+    private long lastAutosaveTime = 0;
+    private final WorldSaveManager worldSaveManager = new WorldSaveManager(Paths.get("bin", "worlds"));
+    private final List<String> availableWorlds = new ArrayList<>();
+    private final ImString newWorldNameInput = new ImString(64);
+    private String selectedWorldName = null;
+    private String currentWorldName = null;
     private int lastPlayerChunkX = 0;
     private int lastPlayerChunkZ = 0;
     private Vector3f lastCameraPos = new Vector3f();
@@ -140,6 +151,9 @@ public class Main implements IAppLogic, IGuiInstance {
 
     @Override
     public void cleanup() {
+        flushModifiedChunks();
+        savePlayerState();
+        saveDroppedItems();
         chunkExecutor.shutdownNow();
         if (mobManager != null) {
             mobManager.cleanup();
@@ -163,6 +177,8 @@ public class Main implements IAppLogic, IGuiInstance {
         Blocks.registerBlocks(scene);
         Items.registerItems(scene);
         RecipeManager.initializeRecipes();
+        worldSaveManager.ensureBaseDir();
+        refreshWorldList();
 
         // Initialize mob system
         mobManager = new MobManager();
@@ -185,13 +201,6 @@ public class Main implements IAppLogic, IGuiInstance {
             }
         }
 
-        inventory.addItem(Items.GRASS_BLOCK, 64);
-        inventory.addItem(Items.DIRT, 64);
-        inventory.addItem(Items.STONE, 64);
-        inventory.addItem(Items.OAK_LOG, 64);
-        inventory.addItem(Items.COOKED_PORKCHOP, 16);
-        inventory.addItem(Items.COOKED_BEEF, 16);
-
         // Don't capture cursor in menu
         if (currentState == GameState.PLAYING && !inventoryOpen) {
             captureMouse();
@@ -207,6 +216,8 @@ public class Main implements IAppLogic, IGuiInstance {
         
         if (currentState == GameState.MENU) {
             renderMenu();
+        } else if (currentState == GameState.WORLD_SELECT) {
+            renderWorldSelect();
         } else if (currentState == GameState.MODSLIST) {
             renderModsList();
         } else if (currentState == GameState.INFO) {
@@ -964,15 +975,15 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.pushStyleVar(ImGuiStyleVar.FrameBorderSize, 2.0f);
         ImGui.pushStyleColor(ImGuiCol.Border, 0.6f, 0.6f, 0.6f, 1.0f);
         
-        if (ImGui.button("Singleplayer", buttonWidth, buttonHeight)) {
-            startNewGame();
-        }
-        
-        ImGui.setCursorPos(centerX, buttonY + buttonHeight + spacing);
-        if (ImGui.button("Multiplayer", buttonWidth, buttonHeight)) {
-            // TODO: multiplayer
-            startNewGame();
-        }
+          if (ImGui.button("Singleplayer", buttonWidth, buttonHeight)) {
+              openWorldSelect();
+          }
+          
+          ImGui.setCursorPos(centerX, buttonY + buttonHeight + spacing);
+          if (ImGui.button("Multiplayer", buttonWidth, buttonHeight)) {
+              // TODO: multiplayer
+              openWorldSelect();
+          }
         
         if (ModLoader.getModsLoaded() != 0) {
             ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * 2);
@@ -988,9 +999,9 @@ public class Main implements IAppLogic, IGuiInstance {
         }
 
         ImGui.setCursorPos(centerX, buttonY + (buttonHeight + spacing) * (buttonIndex + 1));
-        if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
-            System.exit(0);
-        }
+          if (ImGui.button("Quit Game", buttonWidth, buttonHeight)) {
+              quitGame();
+          }
         
         ImGui.popStyleColor(5);
         ImGui.popStyleVar(2);
@@ -999,15 +1010,103 @@ public class Main implements IAppLogic, IGuiInstance {
         float versionWidth = ImGui.calcTextSize(version).x;
         ImGui.setCursorPos(windowWidth - versionWidth - 10, windowHeight - 30);
         ImGui.pushStyleColor(ImGuiCol.Text, 0.5f, 0.5f, 0.5f, 1.0f);
-        ImGui.text(version);
-        ImGui.popStyleColor();
-        
-        ImGui.end();
-        ImGui.popStyleVar(3);
-    }
+          ImGui.text(version);
+          ImGui.popStyleColor();
+          
+          ImGui.end();
+          ImGui.popStyleVar(3);
+      }
 
-    private void renderModsList() {
-        ImGui.begin("Mods List");
+      private void renderWorldSelect() {
+          ImGuiIO io = ImGui.getIO();
+          float windowWidth = io.getDisplaySizeX();
+          float windowHeight = io.getDisplaySizeY();
+
+          ImGui.setNextWindowPos(0, 0);
+          ImGui.setNextWindowSize(windowWidth, windowHeight);
+          ImGui.pushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
+          ImGui.pushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+          ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.0f, 0.0f);
+
+          int windowFlags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize |
+                          ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoScrollbar |
+                          ImGuiWindowFlags.NoSavedSettings;
+
+          ImGui.begin("WorldSelect", windowFlags);
+          ImDrawList drawList = ImGui.getWindowDrawList();
+          drawList.addRectFilled(0, 0, windowWidth, windowHeight,
+                              ImGui.getColorU32(0.12f, 0.12f, 0.12f, 1.0f));
+
+          refreshWorldList();
+
+          String title = "Select World";
+          float titleScale = 3.0f;
+          float titleWidth = ImGui.calcTextSize(title).x * titleScale;
+          float titleX = (windowWidth - titleWidth) / 2;
+          float titleY = windowHeight * 0.15f;
+
+          ImGui.setWindowFontScale(titleScale);
+          ImGui.setCursorPos(titleX, titleY);
+          ImGui.pushStyleColor(ImGuiCol.Text, 1.0f, 1.0f, 1.0f, 1.0f);
+          ImGui.text(title);
+          ImGui.popStyleColor();
+          ImGui.setWindowFontScale(1.0f);
+
+          float panelWidth = 420;
+          float panelHeight = 260;
+          float panelX = (windowWidth - panelWidth) / 2;
+          float panelY = titleY + 70;
+
+          ImGui.setCursorPos(panelX, panelY);
+          ImGui.beginChild("WorldList", panelWidth, panelHeight, true);
+          if (availableWorlds.isEmpty()) {
+              ImGui.text("No worlds found. Create a new one below.");
+          } else {
+              for (String world : availableWorlds) {
+                  boolean selected = world.equals(selectedWorldName);
+                  if (ImGui.selectable(world, selected)) {
+                      selectedWorldName = world;
+                  }
+              }
+          }
+          ImGui.endChild();
+
+          float buttonWidth = panelWidth;
+          float buttonHeight = 38;
+          float controlsY = panelY + panelHeight + 16;
+
+          ImGui.setCursorPos(panelX, controlsY);
+          ImGui.inputText("World Name", newWorldNameInput);
+
+          ImGui.setCursorPos(panelX, controlsY + 40);
+          if (ImGui.button("Create & Play", buttonWidth, buttonHeight)) {
+              String sanitized = worldSaveManager.sanitizeWorldName(newWorldNameInput.get());
+              if (sanitized.isEmpty()) {
+                  sanitized = generateDefaultWorldName();
+              }
+              worldSaveManager.ensureWorldExists(sanitized);
+              selectedWorldName = sanitized;
+              newWorldNameInput.set("");
+              startGameWithWorld(sanitized);
+          }
+
+          ImGui.setCursorPos(panelX, controlsY + 40 + buttonHeight + 10);
+          boolean hasSelection = selectedWorldName != null && !selectedWorldName.isEmpty();
+          if (ImGui.button("Play Selected", buttonWidth, buttonHeight) && hasSelection) {
+              startGameWithWorld(selectedWorldName);
+          }
+
+          ImGui.setCursorPos(panelX, controlsY + 40 + (buttonHeight + 10) * 2);
+          if (ImGui.button("Back", buttonWidth, buttonHeight)) {
+              currentState = GameState.MENU;
+          }
+
+          ImGui.end();
+          ImGui.popStyleVar(3);
+      }
+
+      private void renderModsList() {
+          ImGui.begin("Mods List");
 
         ImGui.text("Mods Loaded: " + ModLoader.getModsLoaded());
         ImGui.text("Mods: " + ModLoader.getMods());
@@ -1154,10 +1253,115 @@ public class Main implements IAppLogic, IGuiInstance {
         ImGui.popStyleVar(3);
     }
 
-    private void startNewGame() {
+    private void startGameWithWorld(String worldName) {
+        if (worldName == null) {
+            return;
+        }
+        String sanitized = worldSaveManager.sanitizeWorldName(worldName);
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        currentWorldName = sanitized;
+        worldSaveManager.ensureWorldExists(currentWorldName);
+        resetWorldState();
         currentState = GameState.PLAYING;
         captureMouse();
-        setInitialSpawn(scene.getCamera());
+        boolean loadedPlayer = applySavedPlayerState();
+        if (!loadedPlayer) {
+            giveStarterItems();
+            setInitialSpawn(scene.getCamera());
+        }
+        applySavedDroppedItems();
+    }
+
+    private void openWorldSelect() {
+        refreshWorldList();
+        if (selectedWorldName == null && !availableWorlds.isEmpty()) {
+            selectedWorldName = availableWorlds.get(0);
+        }
+        currentState = GameState.WORLD_SELECT;
+        releaseMouse();
+    }
+
+    private void refreshWorldList() {
+        availableWorlds.clear();
+        availableWorlds.addAll(worldSaveManager.listWorlds());
+        if (selectedWorldName != null && !availableWorlds.contains(selectedWorldName)) {
+            selectedWorldName = null;
+        }
+    }
+
+    private String generateDefaultWorldName() {
+        refreshWorldList();
+        int counter = 1;
+        while (availableWorlds.contains("world" + counter)) {
+            counter++;
+        }
+        return "world" + counter;
+    }
+
+    private boolean applySavedPlayerState() {
+        if (currentWorldName == null) {
+            return false;
+        }
+        WorldSaveManager.PlayerState state = worldSaveManager.loadPlayerState(currentWorldName);
+        if (state == null) {
+            return false;
+        }
+        inventory.loadState(state.hotbar, state.inventory);
+        Camera cam = scene.getCamera();
+        cam.setPosition(state.x, state.y, state.z);
+        respawnPosition.set(state.x, state.y, state.z);
+        scene.getPhysics().resetVelocity();
+        return true;
+    }
+
+    private void giveStarterItems() {
+        inventory.clearAll();
+        inventory.addItem(Items.GRASS_BLOCK, 64);
+        inventory.addItem(Items.DIRT, 64);
+        inventory.addItem(Items.STONE, 64);
+        inventory.addItem(Items.OAK_LOG, 64);
+        inventory.addItem(Items.COOKED_PORKCHOP, 16);
+        inventory.addItem(Items.COOKED_BEEF, 16);
+    }
+
+    private void applySavedDroppedItems() {
+        if (currentWorldName == null || droppedItemManager == null) {
+            return;
+        }
+        List<WorldSaveManager.DroppedItemData> drops = worldSaveManager.loadDroppedItems(currentWorldName);
+        for (WorldSaveManager.DroppedItemData data : drops) {
+            droppedItemManager.restoreItem(data.position, data.item, data.count);
+        }
+    }
+
+    private void resetWorldState() {
+        for (Chunk chunk : loadedChunks.values()) {
+            chunk.removeFromScene(scene);
+        }
+        loadedChunks.clear();
+        loadingChunks.clear();
+        readyChunks.clear();
+        chunkLastSeen.clear();
+        dirtyChunks.clear();
+        pendingRender.clear();
+        pendingSince.clear();
+        modifiedChunksForSave.clear();
+        targetBlock = null;
+        breakingProgress = 0.0f;
+        inventory.clearAll();
+        clearCraftingGrid();
+        if (droppedItemManager != null) {
+            droppedItemManager.clearAll();
+        }
+    }
+
+    private void quitGame() {
+        flushModifiedChunks();
+        savePlayerState();
+        saveDroppedItems();
+        System.exit(0);
     }
 
     private void captureMouse() {
@@ -1712,6 +1916,7 @@ public class Main implements IAppLogic, IGuiInstance {
                     byte blockId = getBlockIdFromItem(selected.getItem());
 
                     c.setBlock(localX, result.previousBlockPos.y, localZ, blockId);
+                    markChunkModifiedForSaving(chunkX, chunkZ);
                     inventory.removeSelectedItem();
                     c.rebuildMesh(scene, snapshotLoadedChunks());
                     rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
@@ -1821,6 +2026,7 @@ public class Main implements IAppLogic, IGuiInstance {
                                 // else: block requires tool but player doesn't have one, no drops
 
                                 c.setBlock(localX, result.blockPos.y, localZ, Blocks.AIR.getId());
+                                markChunkModifiedForSaving(chunkX, chunkZ);
                                 c.rebuildMesh(scene, snapshotLoadedChunks());
                                 rebuildNeighborChunksIfEdge(scene, chunkX, chunkZ, localX, localZ);
 
@@ -1904,6 +2110,8 @@ public class Main implements IAppLogic, IGuiInstance {
             if (playerHealth <= 0) {
                 handlePlayerDeath(scene);
             }
+
+            autosaveChunks();
         }
     }
 
@@ -1992,6 +2200,7 @@ public class Main implements IAppLogic, IGuiInstance {
                     chunkExecutor.submit(() -> {
                         Chunk c = new Chunk(cx, cz);
                         c.buildData();
+                        applySavedChunkData(c);
                         readyChunks.add(c);
                         loadingChunks.remove(key);
                     });
@@ -2028,6 +2237,7 @@ public class Main implements IAppLogic, IGuiInstance {
             String key = coords[0] + "_" + coords[1];
             Chunk removed = loadedChunks.remove(key);
             if (removed != null) {
+                saveChunkIfDirty(key, removed);
                 chunkLastSeen.remove(key);
                 pendingRender.remove(key);
                 pendingSince.remove(key);
@@ -2127,6 +2337,67 @@ public class Main implements IAppLogic, IGuiInstance {
         dirtyChunks.add(chunkX + "_" + (chunkZ + 1));
     }
 
+    private void markChunkModifiedForSaving(int chunkX, int chunkZ) {
+        modifiedChunksForSave.add(chunkX + "_" + chunkZ);
+    }
+
+    private void applySavedChunkData(Chunk chunk) {
+        if (currentWorldName != null) {
+            worldSaveManager.loadChunk(currentWorldName, chunk);
+        }
+    }
+
+    private void saveChunkIfDirty(String key, Chunk chunk) {
+        if (currentWorldName != null && modifiedChunksForSave.remove(key)) {
+            worldSaveManager.saveChunk(currentWorldName, chunk);
+        }
+    }
+
+    private void flushModifiedChunks() {
+        if (currentWorldName == null || modifiedChunksForSave.isEmpty()) {
+            return;
+        }
+        for (String key : new ArrayList<>(modifiedChunksForSave)) {
+            Chunk chunk = loadedChunks.get(key);
+            if (chunk != null) {
+                worldSaveManager.saveChunk(currentWorldName, chunk);
+            }
+        }
+        modifiedChunksForSave.clear();
+    }
+
+    private void savePlayerState() {
+        if (currentWorldName == null || scene == null) {
+            return;
+        }
+        Camera cam = scene.getCamera();
+        if (cam == null) {
+            return;
+        }
+        worldSaveManager.savePlayerState(currentWorldName, cam.getPosition(), inventory.copyHotbar(), inventory.copyInventory());
+    }
+
+    private void saveDroppedItems() {
+        if (currentWorldName == null || droppedItemManager == null) {
+            return;
+        }
+        worldSaveManager.saveDroppedItems(currentWorldName, droppedItemManager.getDroppedItems());
+    }
+
+    private void autosaveChunks() {
+        if (currentWorldName == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if ((now - lastAutosaveTime) < AUTOSAVE_INTERVAL_MS) {
+            return;
+        }
+        flushModifiedChunks();
+        savePlayerState();
+        saveDroppedItems();
+        lastAutosaveTime = now;
+    }
+
     private void rebuildDirtyChunks(Scene scene) {
         if (dirtyChunks.isEmpty()) {
             return;
@@ -2203,6 +2474,7 @@ public class Main implements IAppLogic, IGuiInstance {
         if (chunk == null) {
             Chunk temp = new Chunk(chunkX, chunkZ);
             temp.buildData();
+            applySavedChunkData(temp);
             return findSurfaceHeightInChunk(temp, worldX, worldZ);
         }
         return findSurfaceHeightInChunk(chunk, worldX, worldZ);

@@ -180,4 +180,52 @@ public class Inventory {
 
         return new ItemStack(stack.getItem(), halfCount);
     }
+
+    public void clearAll() {
+        for (int i = 0; i < HOTBAR_SIZE; i++) {
+            hotbar[i] = new ItemStack();
+        }
+        for (int i = 0; i < INVENTORY_SIZE; i++) {
+            inventory[i] = new ItemStack();
+        }
+        selectedSlot = 0;
+    }
+
+    public ItemStack[] copyHotbar() {
+        ItemStack[] copy = new ItemStack[HOTBAR_SIZE];
+        for (int i = 0; i < HOTBAR_SIZE; i++) {
+            ItemStack src = hotbar[i];
+            copy[i] = new ItemStack(src.getItem(), src.getCount());
+        }
+        return copy;
+    }
+
+    public ItemStack[] copyInventory() {
+        ItemStack[] copy = new ItemStack[INVENTORY_SIZE];
+        for (int i = 0; i < INVENTORY_SIZE; i++) {
+            ItemStack src = inventory[i];
+            copy[i] = new ItemStack(src.getItem(), src.getCount());
+        }
+        return copy;
+    }
+
+    public void loadState(ItemStack[] hotbarState, ItemStack[] inventoryState) {
+        clearAll();
+        if (hotbarState != null) {
+            for (int i = 0; i < Math.min(hotbarState.length, HOTBAR_SIZE); i++) {
+                ItemStack src = hotbarState[i];
+                if (src != null) {
+                    hotbar[i] = new ItemStack(src.getItem(), src.getCount());
+                }
+            }
+        }
+        if (inventoryState != null) {
+            for (int i = 0; i < Math.min(inventoryState.length, INVENTORY_SIZE); i++) {
+                ItemStack src = inventoryState[i];
+                if (src != null) {
+                    inventory[i] = new ItemStack(src.getItem(), src.getCount());
+                }
+            }
+        }
+    }
 }
